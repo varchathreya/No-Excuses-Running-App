@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "No Excuses"
+description = "An Android-first beginner running and rehabilitation app that turns intent into action with structured weekly scheduling, workout reminders, guided rehab timers, GPS run tracking, and progress metrics."
+version = "1.0.0"
+id = "artifacts/no-excuses"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 21634
+
+[services.development]
+run = "pnpm --filter @workspace/no-excuses run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/no-excuses", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/no-excuses", "run", "serve" ]
+
+[services.env]
+PORT = "21634"
+BASE_PATH = "/"

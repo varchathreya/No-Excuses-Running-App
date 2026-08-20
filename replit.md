@@ -1,11 +1,12 @@
-# [Project name]
+# No Excuses
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An Android-first beginner running and rehabilitation app that turns intent into action with structured weekly scheduling, guided rehab timers, GPS sessions, and progress metrics.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run typecheck` — full typecheck across all packages
+- `pnpm --filter @workspace/no-excuses run typecheck` — typecheck the mobile app
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
@@ -22,15 +23,24 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/no-excuses/` — Expo mobile app
+- `artifacts/no-excuses/context/AppContext.tsx` — local-first schedule and completion state
+- `artifacts/no-excuses/app/(tabs)/` — Today, Schedule, Run, Rehab, and Progress screens
+- `artifacts/no-excuses/constants/colors.ts` — No Excuses visual tokens
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The first build is local-first using AsyncStorage so it can be tested immediately without an account or backend.
+- Real foreground location permission is requested when an outdoor session starts; the run map is intentionally lightweight and Expo Go compatible.
+- Native exact alarms, calendar sync, and push notifications are reserved for a native integration pass rather than simulated in-app.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Seven-day beginner plan with individual scheduling and multi-schedule controls.
+- Today dashboard with the next workout, compliance, and readiness guidance.
+- GPS-ready outdoor session screen with live timer, distance/pace telemetry surface, and finish feedback.
+- Rehab routine with ordered exercises, isometric countdowns, set tracking, and haptics.
+- Progress dashboard with readiness score, mileage, consistency grid, and unlock guidance.
 
 ## User preferences
 

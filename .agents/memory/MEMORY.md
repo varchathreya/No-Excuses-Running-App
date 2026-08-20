@@ -1,0 +1,1 @@
+- [Android delivery](android-delivery.md) — Expo Go QR testing is the immediate Android path; Google Play publishing needs a separate Android build workflow.

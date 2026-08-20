@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "No Excuses",
+    "slug": "no-excuses",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/no-excuses-icon.png",
+    "scheme": "no-excuses",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/no-excuses-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111315"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "SCHEDULE_EXACT_ALARM"]
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
