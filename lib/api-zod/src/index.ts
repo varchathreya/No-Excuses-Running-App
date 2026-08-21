@@ -1,2 +1,9 @@
 export * from "./generated/api";
-export * from "./generated/types";
+export type {
+  CalendarEvent,
+  CalendarPreview,
+  CreateWorkoutCalendarEvents200,
+  GetCalendarPreviewParams,
+  HealthStatus,
+  WorkoutCalendarInput,
+} from "./generated/types";

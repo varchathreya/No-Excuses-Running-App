@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: calendar
+    description: Connected Google Calendar operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /calendar/preview:
+    get:
+      operationId: getCalendarPreview
+      tags: [calendar]
+      summary: Preview connected calendar events
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 31
+            default: 7
+      responses:
+        "200":
+          description: Calendar preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarPreview"
+        "502":
+          description: Calendar connection unavailable
+  /calendar/workouts:
+    post:
+      operationId: createWorkoutCalendarEvents
+      tags: [calendar]
+      summary: Create workout events in the connected calendar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workouts:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/WorkoutCalendarInput"
+              required: [workouts]
+      responses:
+        "200":
+          description: Created events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: number
+                required: [created]
+        "502":
+          description: Calendar connection unavailable
 components:
   schemas:
     HealthStatus:
@@ -33,4 +88,30 @@ components:
           type: string
       required:
         - status
+    CalendarEvent:
+      type: object
+      properties:
+        id: { type: string }
+        summary: { type: string }
+        start: { type: string }
+        end: { type: string }
+        htmlLink: { type: string }
+      required: [id, summary, start, end]
+    CalendarPreview:
+      type: object
+      properties:
+        connected: { type: boolean }
+        calendarName: { type: string }
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEvent"
+      required: [connected, calendarName, events]
+    WorkoutCalendarInput:
+      type: object
+      properties:
+        title: { type: string }
+        start: { type: string }
+        end: { type: string }
+      required: [title, start, end]
 

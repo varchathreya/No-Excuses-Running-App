@@ -54,5 +54,9 @@
     "typescript": "~5.9.2",
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
+  },
+  "dependencies": {
+    "expo-intent-launcher": "~13.0.8",
+    "react-native-maps": "1.18.0"
   }
 }
