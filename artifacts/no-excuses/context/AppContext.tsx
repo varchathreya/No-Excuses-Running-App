@@ -47,7 +47,7 @@ const plan: Array<{ title: string; type: Workout['type']; duration: string; focu
   { title: 'Four Pillars Review', type: 'rehab', duration: '20 min', focus: toolkit },
   { title: 'Rest + Recovery Check', type: 'rehab', duration: '10 min', focus: 'Celebrate resilient recovery. Keep all sessions flat and level.' },
 ];
-const initialWorkouts: Workout[] = plan.map((item, index) => ({ id: String(index + 1), day: index + 1, week: Math.floor(index / 7) + 1, ...item, scheduled: index < 3, completed: index === 1 }));
+const initialWorkouts: Workout[] = plan.map((item, index) => ({ id: String(index + 1), day: index + 1, week: Math.floor(index / 7) + 1, ...item, scheduled: true, completed: false }));
 
 type AppState = {
   workouts: Workout[];

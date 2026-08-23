@@ -1,1 +1,2 @@
 - [Android delivery](android-delivery.md) — Expo Go QR testing is the immediate Android path; Google Play publishing needs a separate Android build workflow.
+- [Calendar booking](calendar-booking.md) — workout booking uses Google Calendar’s mobile event-template URL so users choose the final date and time.
