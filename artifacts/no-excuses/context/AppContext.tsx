@@ -15,6 +15,9 @@ export type Workout = {
 };
 export type RoutePoint = { latitude: number; longitude: number; altitude?: number; accuracy?: number; timestamp: number };
 export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[] };
+export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
+export function isWorkoutAvailableToday(day: number) { return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7); }
 
 const toolkit = 'Strength toolkit: A-skips, hip circles, walking lunges, single-leg deadlifts, bodyweight squats, clamshells, hip hikes, glute bridges, short-foot doming, toe yoga, calf raises, hip flexor stretch, plantar rolling, calf smashes.';
 const plan: Array<{ title: string; type: Workout['type']; duration: string; focus: string }> = [
