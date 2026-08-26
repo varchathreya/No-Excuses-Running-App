@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGetCalendarPreview } from '@workspace/api-client-react';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -52,7 +52,7 @@ export default function Schedule() {
   const colors = useColors();
   const { workouts } = useApp();
   const [week, setWeek] = useState(1);
-  const calendar = useGetCalendarPreview({ days: 31 }, { query: { refetchInterval: 30000, staleTime: 0, refetchOnReconnect: true } });
+  const calendar = useGetCalendarPreview({ days: 31 });
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
   const previousAppState = useRef(AppState.currentState);
   useEffect(() => {
@@ -61,6 +61,10 @@ export default function Schedule() {
       previousAppState.current = nextState;
     });
     return () => subscription.remove();
+  }, [calendar.refetch]);
+  useEffect(() => {
+    const interval = setInterval(() => calendar.refetch(), 30000);
+    return () => clearInterval(interval);
   }, [calendar.refetch]);
   return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" action={<Feather name="bell" size={22} color={colors.foreground} />} />
     <View style={[local.notice, { backgroundColor: colors.card }]}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 7 days…' : `${calendar.data?.events.length ?? 0} events visible in the preview`}</Text></View><Button label="Open" secondary onPress={() => Linking.openURL('https://calendar.google.com')} /></View>
