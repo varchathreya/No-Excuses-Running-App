@@ -10,6 +10,8 @@ export * from './calendarEvent';
 export * from './calendarPreview';
 export * from './createWorkoutCalendarEvents200';
 export * from './createWorkoutCalendarEventsBody';
+export * from './dailyQuote';
 export * from './getCalendarPreviewParams';
+export * from './getDailyQuoteParams';
 export * from './healthStatus';
 export * from './workoutCalendarInput';

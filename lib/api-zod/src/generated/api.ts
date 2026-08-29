@@ -58,3 +58,19 @@ export const CreateWorkoutCalendarEventsResponse = zod.object({
 })
 
 
+/**
+ * @summary Get the motivational quote for a local calendar day
+ */
+export const getDailyQuoteQueryDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetDailyQuoteQueryParams = zod.object({
+  "date": zod.coerce.string().regex(getDailyQuoteQueryDateRegExp).optional()
+})
+
+export const GetDailyQuoteResponse = zod.object({
+  "quote": zod.string(),
+  "index": zod.number().int()
+})
+
+

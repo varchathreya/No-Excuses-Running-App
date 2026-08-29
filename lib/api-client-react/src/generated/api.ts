@@ -23,7 +23,9 @@ import type {
   CalendarPreview,
   CreateWorkoutCalendarEvents200,
   CreateWorkoutCalendarEventsBody,
+  DailyQuote,
   GetCalendarPreviewParams,
+  GetDailyQuoteParams,
   HealthStatus
 } from './api.schemas';
 
@@ -286,4 +288,88 @@ export const useCreateWorkoutCalendarEvents = <TError = ErrorType<void>,
       > => {
       return useMutation(getCreateWorkoutCalendarEventsMutationOptions(options));
     }
+
+export const getGetDailyQuoteUrl = (params?: GetDailyQuoteParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/quotes/daily?${stringifiedParams}` : `/api/quotes/daily`
+}
+
+/**
+ * @summary Get the motivational quote for a local calendar day
+ */
+export const getDailyQuote = async (params?: GetDailyQuoteParams, options?: Parameters<typeof customFetch>[1]): Promise<DailyQuote> => {
+
+  return customFetch<DailyQuote>(getGetDailyQuoteUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDailyQuoteQueryKey = (params?: GetDailyQuoteParams,) => {
+    return [
+    `/api/quotes/daily`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDailyQuoteQueryOptions = <TData = Awaited<ReturnType<typeof getDailyQuote>>, TError = ErrorType<unknown>>(params?: GetDailyQuoteParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyQuote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyQuoteQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyQuote>>> = ({ signal }) => getDailyQuote(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyQuote>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDailyQuoteQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyQuote>>>
+export type GetDailyQuoteQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the motivational quote for a local calendar day
+ */
+
+export function useGetDailyQuote<TData = Awaited<ReturnType<typeof getDailyQuote>>, TError = ErrorType<unknown>>(
+ params?: GetDailyQuoteParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDailyQuote>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDailyQuoteQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

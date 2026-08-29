@@ -29,6 +29,11 @@ export interface WorkoutCalendarInput {
   end: string;
 }
 
+export interface DailyQuote {
+  quote: string;
+  index: number;
+}
+
 export type GetCalendarPreviewParams = {
 /**
  * @minimum 1
@@ -43,5 +48,12 @@ export type CreateWorkoutCalendarEventsBody = {
 
 export type CreateWorkoutCalendarEvents200 = {
   created: number;
+};
+
+export type GetDailyQuoteParams = {
+/**
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+date?: string;
 };
 
