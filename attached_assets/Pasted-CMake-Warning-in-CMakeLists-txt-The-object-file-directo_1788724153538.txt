@@ -1,0 +1,60 @@
+CMake Warning in CMakeLists.txt:
+    The object file directory
+
+      C:/APK-test/No-Excuses-Running-App/node_modules/.pnpm/react-native-worklets@0.5.1_13303774ccf484748da144617f43f8c9/node_modules/react-native-worklets/android/.cxx/Debug/4nk235c1/arm64-v8a/CMakeFiles/worklets.dir/./
+
+    has 214 characters.  The maximum full path to an object file is 250
+    characters (see CMAKE_OBJECT_PATH_MAX).  Object file
+
+      C_/APK-test/No-Excuses-Running-App/node_modules/.pnpm/react-native-worklets@0.5.1_13303774ccf484748da144617f43f8c9/node_modules/react-native-worklets/Common/cpp/worklets/Registries/EventHandlerRegistry.cpp.o
+
+    cannot be safely placed under this directory.  The build may not work
+    correctly.
+
+
+  CMake Warning in CMakeLists.txt:
+    The object file directory
+
+      C:/APK-test/No-Excuses-Running-App/node_modules/.pnpm/react-native-worklets@0.5.1_13303774ccf484748da144617f43f8c9/node_modules/react-native-worklets/android/.cxx/Debug/4nk235c1/arm64-v8a/CMakeFiles/worklets.dir/./
+
+    has 214 characters.  The maximum full path to an object file is 250
+    characters (see CMAKE_OBJECT_PATH_MAX).  Object file
+
+      src/main/cpp/worklets/android/WorkletsModule.cpp.o
+
+    cannot be safely placed under this directory.  The build may not work
+    correctly.
+
+
+  CMake Warning in CMakeLists.txt:
+    The object file directory
+
+      C:/APK-test/No-Excuses-Running-App/node_modules/.pnpm/react-native-worklets@0.5.1_13303774ccf484748da144617f43f8c9/node_modules/react-native-worklets/android/.cxx/Debug/4nk235c1/arm64-v8a/CMakeFiles/worklets.dir/./
+
+    has 214 characters.  The maximum full path to an object file is 250
+    characters (see CMAKE_OBJECT_PATH_MAX).  Object file
+
+      C_/APK-test/No-Excuses-Running-App/node_modules/.pnpm/react-native-worklets@0.5.1_13303774ccf484748da144617f43f8c9/node_modules/react-native-worklets/Common/cpp/worklets/NativeModules/JSIWorkletsModuleProxy.cpp.o
+
+    cannot be safely placed under this directory.  The build may not work
+    correctly.
+
+
+  ninja: error: manifest 'build.ninja' still dirty after 100 tries
+
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD FAILED in 3m 10s
+359 actionable tasks: 359 executed
