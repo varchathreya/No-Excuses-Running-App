@@ -12,6 +12,7 @@ export type Workout = {
   focus: string;
   scheduled: boolean;
   completed: boolean;
+  alarmSet?: boolean;
 };
 export type RoutePoint = { latitude: number; longitude: number; altitude?: number; accuracy?: number; timestamp: number };
 export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[] };
@@ -58,6 +59,7 @@ type AppState = {
   scheduleAll: () => void;
   toggleSchedule: (id: string) => void;
   completeWorkout: (id: string) => void;
+  setAlarmChecked: (id: string, checked: boolean) => void;
   saveActivity: (activity: Activity) => void;
   completedCount: number;
   totalMiles: number;
@@ -75,6 +77,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
+    setAlarmChecked: (id: string, checked: boolean) => update((items) => items.map((item) => item.id === id ? { ...item, alarmSet: checked } : item)),
     saveActivity: (activity: Activity) => setActivities((items) => [activity, ...items]),
     completedCount: workouts.filter((item) => item.completed).length,
     totalMiles: activities.reduce((sum, activity) => sum + activity.distanceMeters / 1609.34, 0),

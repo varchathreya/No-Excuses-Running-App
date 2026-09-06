@@ -19,7 +19,7 @@
     "android": {
       "package": "com.noexcuses.app",
       "versionCode": 1,
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "SCHEDULE_EXACT_ALARM"]
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "SCHEDULE_EXACT_ALARM", "com.android.alarm.permission.SET_ALARM"]
     },
     "web": {
       "favicon": "./assets/images/icon.png"

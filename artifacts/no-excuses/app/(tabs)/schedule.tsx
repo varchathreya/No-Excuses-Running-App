@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGetCalendarPreview } from '@workspace/api-client-react';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
 import { useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
@@ -25,11 +26,43 @@ function openCalendar(item: Workout) {
   Linking.openURL(url).catch(() => Alert.alert('Google Calendar unavailable', 'Install Google Calendar or open this link in your mobile browser.'));
 }
 
+async function openAlarm(item: Workout, onReturn: () => void) {
+  if (Platform.OS !== 'android') {
+    Alert.alert('Android alarm', 'Alarm setup opens the native Android Clock app on an Android device.');
+    return;
+  }
+  const androidDay = ((workoutWeekdayIndex(item.day) + 1) % 7) + 1;
+  try {
+    await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
+      extra: {
+        'android.intent.extra.alarm.HOUR': 6,
+        'android.intent.extra.alarm.MINUTES': 0,
+        'android.intent.extra.alarm.MESSAGE': `No Excuses · ${item.title}`,
+        'android.intent.extra.alarm.DAYS': [androidDay],
+        'android.intent.extra.alarm.SKIP_UI': false,
+        'android.intent.extra.alarm.VIBRATE': true,
+      },
+    });
+    onReturn();
+  } catch {
+    Alert.alert('Clock app unavailable', 'No compatible Android Clock app was found. You can set the alarm manually in your device’s Clock app.');
+  }
+}
+
 function WorkoutRow({ item, booked }: { item: Workout; booked: boolean }) {
   const colors = useColors();
   const router = useRouter();
+  const { setAlarmChecked } = useApp();
   const weekday = WEEKDAYS[workoutWeekdayIndex(item.day)];
   const start = () => router.push(item.type === 'rehab' ? `/rehab?workoutId=${item.id}` : `/run?workoutId=${item.id}`);
+  const alarmChecked = !!item.alarmSet;
+  const alarmPress = () => {
+    if (alarmChecked) {
+      setAlarmChecked(item.id, false);
+      return;
+    }
+    openAlarm(item, () => setAlarmChecked(item.id, true));
+  };
   return (
     <View style={[local.row, { backgroundColor: colors.card }]}>
       <View style={[local.day, { backgroundColor: item.completed ? colors.accent : colors.secondary }]}>
@@ -39,6 +72,15 @@ function WorkoutRow({ item, booked }: { item: Workout; booked: boolean }) {
         <View style={local.titleLine}><Text style={[local.rowTitle, { color: colors.foreground }]}>{item.title}</Text>{item.completed && <Pill color={colors.accent}>DONE</Pill>}</View>
         <Text style={[styles.muted, { color: colors.primary }]}>{weekday} · {item.duration}</Text>
         <Text style={[styles.muted, { color: colors.mutedForeground }]}>Week {item.week}</Text>
+        <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={local.alarmControl}>
+          <View style={[local.checkbox, { borderColor: alarmChecked ? colors.accent : colors.border, backgroundColor: alarmChecked ? colors.accent : colors.secondary }]}>
+            {alarmChecked && <Feather name="check" size={15} color={colors.accentForeground} />}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[local.alarmText, { color: alarmChecked ? colors.accent : colors.foreground }]}>{alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'}</Text>
+            {alarmChecked && <Text style={[local.alarmHelp, { color: colors.mutedForeground }]}>Uncheck here if you remove it in Clock</Text>}
+          </View>
+        </Pressable>
       </View>
       <View style={local.actions}>
         <Pressable testID={`book-${item.id}`} onPress={() => openCalendar(item)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : 'Book'}</Text></Pressable>
@@ -66,7 +108,7 @@ export default function Schedule() {
     const interval = setInterval(() => calendar.refetch(), 30000);
     return () => clearInterval(interval);
   }, [calendar.refetch]);
-  return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" action={<Feather name="bell" size={22} color={colors.foreground} />} />
+  return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
     <View style={[local.notice, { backgroundColor: colors.card }]}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 7 days…' : `${calendar.data?.events.length ?? 0} events visible in the preview`}</Text></View><Button label="Open" secondary onPress={() => Linking.openURL('https://calendar.google.com')} /></View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Start launches the correct tracker and keeps completed sessions visible here.</Text>
     <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
@@ -86,6 +128,10 @@ const local = StyleSheet.create({
   day: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   rowTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, flex: 1 },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
+  alarmControl: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, minHeight: 34 },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  alarmText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
+  alarmHelp: { fontFamily: 'Inter_400Regular', fontSize: 9, lineHeight: 13, marginTop: 1 },
   actions: { gap: 5 },
   smallButton: { minWidth: 68, minHeight: 34, borderRadius: 10, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 7 },
   smallText: { fontFamily: 'Inter_700Bold', fontSize: 10 },

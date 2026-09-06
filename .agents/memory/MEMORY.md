@@ -1,2 +1,3 @@
 - [Android delivery](android-delivery.md) — Expo Go QR testing is the immediate Android path; Google Play publishing needs a separate Android build workflow.
+- [Alarm checklist](alarm-checklist.md) — native Clock alarms are tracked as user-confirmed checklist items, never presented as verified device alarm state.
 - [Calendar booking](calendar-booking.md) — workout booking uses Google Calendar’s mobile event-template URL so users choose the final date and time.
