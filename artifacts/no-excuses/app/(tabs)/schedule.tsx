@@ -26,10 +26,10 @@ function openCalendar(item: Workout) {
   Linking.openURL(url).catch(() => Alert.alert('Google Calendar unavailable', 'Install Google Calendar or open this link in your mobile browser.'));
 }
 
-async function openAlarm(item: Workout, onReturn: () => void) {
+async function openAlarm(item: Workout) {
   if (Platform.OS !== 'android') {
     Alert.alert('Android alarm', 'Alarm setup opens the native Android Clock app on an Android device.');
-    return;
+    return false;
   }
   const androidDay = ((workoutWeekdayIndex(item.day) + 1) % 7) + 1;
   try {
@@ -43,10 +43,22 @@ async function openAlarm(item: Workout, onReturn: () => void) {
         'android.intent.extra.alarm.VIBRATE': true,
       },
     });
-    onReturn();
+    return true;
   } catch {
-    Alert.alert('Clock app unavailable', 'No compatible Android Clock app was found. You can set the alarm manually in your device’s Clock app.');
+    try {
+      await IntentLauncher.startActivityAsync('android.intent.action.SHOW_ALARMS');
+      return true;
+    } catch {
+      Alert.alert('Clock app unavailable', 'No compatible Android Clock app was found. Open your device’s Clock app and set the alarm manually.');
+      return false;
+    }
   }
+}
+
+function openGoogleAccountChooser() {
+  const continueUrl = encodeURIComponent('https://calendar.google.com/calendar/u/0/r');
+  Linking.openURL(`https://accounts.google.com/AccountChooser?continue=${continueUrl}`)
+    .catch(() => Alert.alert('Google unavailable', 'Open Google Calendar and switch accounts from your profile menu.'));
 }
 
 function formatEventTime(start?: string) {
@@ -56,7 +68,7 @@ function formatEventTime(start?: string) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function WorkoutRow({ item, booked, calendarStart }: { item: Workout; booked: boolean; calendarStart?: string }) {
+function WorkoutRow({ item, booked, calendarStart, onAlarmRequested }: { item: Workout; booked: boolean; calendarStart?: string; onAlarmRequested: (item: Workout) => void }) {
   const colors = useColors();
   const router = useRouter();
   const { setAlarmChecked } = useApp();
@@ -68,7 +80,7 @@ function WorkoutRow({ item, booked, calendarStart }: { item: Workout; booked: bo
       setAlarmChecked(item.id, false);
       return;
     }
-    openAlarm(item, () => setAlarmChecked(item.id, true));
+    onAlarmRequested(item);
   };
   return (
     <View style={[local.row, { backgroundColor: colors.card }]}>
@@ -93,9 +105,7 @@ function WorkoutRow({ item, booked, calendarStart }: { item: Workout; booked: bo
         )}
         <Pressable testID={`start-${item.id}`} onPress={start} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
         <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityLabel={alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} accessibilityHint={alarmChecked ? 'Uncheck here if you remove it in Clock' : undefined} accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={[local.smallButton, { borderColor: alarmChecked ? colors.accent : colors.border }]}>
-          <View style={[local.checkbox, { borderColor: alarmChecked ? colors.accent : colors.border, backgroundColor: alarmChecked ? colors.accent : colors.secondary }]}>
-            {alarmChecked && <Feather name="check" size={13} color={colors.accentForeground} />}
-          </View>
+          {alarmChecked ? <View style={[local.checkbox, { borderColor: colors.accent, backgroundColor: colors.accent }]}><Feather name="check" size={13} color={colors.accentForeground} /></View> : <Feather name="clock" size={16} color={colors.foreground} />}
           <Text style={[local.smallText, { color: alarmChecked ? colors.accent : colors.foreground }]}>{alarmChecked ? 'Alarm set' : 'Alarm'}</Text>
         </Pressable>
       </View>
@@ -105,37 +115,66 @@ function WorkoutRow({ item, booked, calendarStart }: { item: Workout; booked: bo
 
 export default function Schedule() {
   const colors = useColors();
-  const { workouts } = useApp();
+  const { workouts, setAlarmChecked } = useApp();
   const [week, setWeek] = useState(1);
   const calendar = useGetCalendarPreview({ days: 42 });
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
   const previousAppState = useRef(AppState.currentState);
+  const pendingAlarm = useRef<Workout | null>(null);
+  const requestAlarm = async (item: Workout) => {
+    const launched = await openAlarm(item);
+    if (launched) pendingAlarm.current = item;
+  };
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (previousAppState.current.match(/inactive|background/) && nextState === 'active') calendar.refetch();
+      if (previousAppState.current.match(/inactive|background/) && nextState === 'active') {
+        calendar.refetch();
+        const pending = pendingAlarm.current;
+        if (pending) {
+          pendingAlarm.current = null;
+          Alert.alert(
+            'Did you save the alarm?',
+            `Android does not let No Excuses verify alarms saved in another Clock app. Confirm only if you saved the 6:00 AM alarm for ${pending.title}.`,
+            [
+              { text: 'Not yet', style: 'cancel' },
+              { text: 'Mark as set', onPress: () => setAlarmChecked(pending.id, true) },
+            ],
+          );
+        }
+      }
       previousAppState.current = nextState;
     });
     return () => subscription.remove();
-  }, [calendar.refetch]);
+  }, [calendar.refetch, setAlarmChecked]);
   useEffect(() => {
     const interval = setInterval(() => calendar.refetch(), 30000);
     return () => clearInterval(interval);
   }, [calendar.refetch]);
   return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
     <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
-    <View style={[local.notice, { backgroundColor: colors.card }]}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 7 days…' : `${calendar.data?.events.length ?? 0} events visible in the preview`}</Text></View><Button label="Open" secondary onPress={() => Linking.openURL('https://calendar.google.com')} /></View>
+    <View style={[local.notice, { backgroundColor: colors.card }]}>
+      <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 42 days…' : `${calendar.data?.events.length ?? 0} events visible in the preview`}</Text></View></View>
+      <View style={local.accountActions}>
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={openGoogleAccountChooser} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="user-plus" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Link New Account</Text></Pressable>
+      </View>
+    </View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>
     <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
     {visible.map((item) => {
       const marker = `W${item.week}D${item.day}`;
       const calendarEvent = calendar.data?.events.find((event) => event.summary.includes(marker));
-      return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} />;
+      return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} onAlarmRequested={requestAlarm} />;
     })}
   </Screen>;
 }
 
 const local = StyleSheet.create({
-  notice: { flexDirection: 'row', gap: 12, padding: 15, borderRadius: 18, marginBottom: 12, alignItems: 'center' },
+  notice: { gap: 12, padding: 15, borderRadius: 18, marginBottom: 12 },
+  accountRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  accountActions: { flexDirection: 'row', gap: 8 },
+  accountButton: { minHeight: 42, flex: 1, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8 },
+  accountButtonText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
   noticeTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, marginBottom: 3 },
   row: { padding: 12, borderRadius: 17, marginBottom: 10, gap: 12 },
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
