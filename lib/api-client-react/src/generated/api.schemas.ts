@@ -37,7 +37,7 @@ export interface DailyQuote {
 export type GetCalendarPreviewParams = {
 /**
  * @minimum 1
- * @maximum 31
+ * @maximum 42
  */
 days?: number;
 };

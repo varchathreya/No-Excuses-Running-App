@@ -15,7 +15,7 @@ export type Workout = {
   alarmSet?: boolean;
 };
 export type RoutePoint = { latitude: number; longitude: number; altitude?: number; accuracy?: number; timestamp: number };
-export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[] };
+export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[]; workoutId?: string };
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
 export function isWorkoutAvailableToday(day: number) { return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7); }

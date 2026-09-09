@@ -12,7 +12,7 @@ function rfc3339(days: number) {
 
 calendarRouter.get("/calendar/preview", async (req, res) => {
   const rawDays = Number(req.query.days ?? 7);
-  const days = Math.min(31, Math.max(1, Number.isFinite(rawDays) ? rawDays : 7));
+  const days = Math.min(42, Math.max(1, Number.isFinite(rawDays) ? rawDays : 7));
   const window = rfc3339(days);
   try {
     const calendarsResponse = await connectors.proxy(

@@ -21,7 +21,7 @@ export const HealthCheckResponse = zod.object({
  * @summary Preview connected calendar events
  */
 export const getCalendarPreviewQueryDaysDefault = 7;
-export const getCalendarPreviewQueryDaysMax = 31;
+export const getCalendarPreviewQueryDaysMax = 42;
 
 
 
