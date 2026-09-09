@@ -5,6 +5,7 @@ import { Screen, Header, Button, SectionTitle, styles } from '@/components/Scree
 import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
 import { isWorkoutAvailableToday, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const exercises = [
   { title: 'Soleus Wall Sit Hold', detail: '3 × 45 sec', duration: 45 },
@@ -14,6 +15,7 @@ const exercises = [
 
 export default function Rehab() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
   const { workouts, completeWorkout } = useApp();
   const scrollRef = useRef<ScrollView>(null);
@@ -64,7 +66,12 @@ export default function Rehab() {
 
   return (
     <Screen scroll={false}>
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={local.content}>
+      <ScrollView
+        ref={scrollRef}
+        style={local.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[local.content, { paddingBottom: insets.bottom + 24 }]}
+      >
         <Header eyebrow="JOINT PREP" title="Rehab player" />
         {workout && (
           <View style={[local.preview, { backgroundColor: colors.card }]}>
@@ -158,7 +165,8 @@ export default function Rehab() {
 }
 
 const local = StyleSheet.create({
-  content: { paddingBottom: 110 },
+  scroll: { flex: 1 },
+  content: { flexGrow: 1 },
   preview: { borderRadius: 20, padding: 17, marginBottom: 12 },
   previewLabel: { fontFamily: 'Inter_700Bold', letterSpacing: 1, fontSize: 10 },
   previewTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, marginVertical: 8 },

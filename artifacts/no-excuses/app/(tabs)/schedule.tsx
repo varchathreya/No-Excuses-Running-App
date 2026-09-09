@@ -8,8 +8,8 @@ import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useUser } from '@clerk/expo';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { getOAuthRedirectUrl, withOAuthTimeout } from '@/lib/oauth';
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -129,20 +129,29 @@ export default function Schedule() {
 
     setLinkingCalendar(true);
     try {
-      const redirectUrl = AuthSession.makeRedirectUri();
-      const account = await googleAccount.reauthorize({
-        additionalScopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-        redirectUrl,
-        oidcPrompt: 'consent select_account',
-      });
+      const redirectUrl = getOAuthRedirectUrl();
+      const account = await withOAuthTimeout(
+        googleAccount.reauthorize({
+          additionalScopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+          redirectUrl,
+          oidcPrompt: 'consent select_account',
+        }),
+      );
       const authorizationUrl = account.verification?.externalVerificationRedirectURL;
       if (!authorizationUrl) throw new Error('Google did not return an authorization link.');
-      const result = await WebBrowser.openAuthSessionAsync(authorizationUrl.toString(), redirectUrl);
-      if (result.type === 'success') {
-        await user?.reload();
-        await calendar.refetch();
+      const result = await withOAuthTimeout(
+        WebBrowser.openAuthSessionAsync(authorizationUrl.toString(), redirectUrl),
+      );
+      if (result.type !== 'success') {
+        if (result.type !== 'cancel' && result.type !== 'dismiss') {
+          throw new Error('Google did not complete the Calendar authorization.');
+        }
+        return;
       }
+      await user?.reload();
+      await calendar.refetch();
     } catch (cause) {
+      void WebBrowser.dismissBrowser();
       Alert.alert(
         'Calendar connection failed',
         cause instanceof Error ? cause.message : 'Google Calendar could not be connected.',

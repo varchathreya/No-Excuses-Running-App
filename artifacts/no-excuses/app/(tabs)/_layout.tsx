@@ -3,9 +3,11 @@ import { Redirect, Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@clerk/expo';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) return null;
@@ -16,7 +18,7 @@ export default function TabLayout() {
       headerShown: false,
       tabBarActiveTintColor: colors.primary,
       tabBarInactiveTintColor: colors.mutedForeground,
-      tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border, height: 82, paddingBottom: 20, paddingTop: 8 },
+      tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border, height: 62 + Math.max(insets.bottom, 8), paddingBottom: Math.max(insets.bottom, 8), paddingTop: 8 },
       tabBarLabelStyle: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
     }}>
       <Tabs.Screen name="index" options={{ title: 'Today', tabBarIcon: ({ color }) => <Feather name="sun" size={21} color={color} /> }} />
