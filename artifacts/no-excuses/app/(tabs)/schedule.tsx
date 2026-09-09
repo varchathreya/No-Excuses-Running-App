@@ -7,6 +7,9 @@ import { useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppCon
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useUser } from '@clerk/expo';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -53,12 +56,6 @@ async function openAlarm(item: Workout) {
       return false;
     }
   }
-}
-
-function openGoogleAccountChooser() {
-  const continueUrl = encodeURIComponent('https://calendar.google.com/calendar/u/0/r');
-  Linking.openURL(`https://accounts.google.com/AccountChooser?continue=${continueUrl}`)
-    .catch(() => Alert.alert('Google unavailable', 'Open Google Calendar and switch accounts from your profile menu.'));
 }
 
 function formatEventTime(start?: string) {
@@ -115,12 +112,45 @@ function WorkoutRow({ item, booked, calendarStart, onAlarmRequested }: { item: W
 
 export default function Schedule() {
   const colors = useColors();
+  const { user } = useUser();
   const { workouts, setAlarmChecked } = useApp();
   const [week, setWeek] = useState(1);
+  const [linkingCalendar, setLinkingCalendar] = useState(false);
   const calendar = useGetCalendarPreview({ days: 42 });
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
+  const linkGoogleCalendar = async () => {
+    const googleAccount = user?.externalAccounts.find((account) => account.provider === 'google');
+    if (!googleAccount) {
+      Alert.alert('Google account unavailable', 'Sign out and continue with the Google account you want to use.');
+      return;
+    }
+
+    setLinkingCalendar(true);
+    try {
+      const redirectUrl = AuthSession.makeRedirectUri();
+      const account = await googleAccount.reauthorize({
+        additionalScopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+        redirectUrl,
+        oidcPrompt: 'consent select_account',
+      });
+      const authorizationUrl = account.verification?.externalVerificationRedirectURL;
+      if (!authorizationUrl) throw new Error('Google did not return an authorization link.');
+      const result = await WebBrowser.openAuthSessionAsync(authorizationUrl.toString(), redirectUrl);
+      if (result.type === 'success') {
+        await user?.reload();
+        await calendar.refetch();
+      }
+    } catch (cause) {
+      Alert.alert(
+        'Calendar connection failed',
+        cause instanceof Error ? cause.message : 'Google Calendar could not be connected.',
+      );
+    } finally {
+      setLinkingCalendar(false);
+    }
+  };
   const requestAlarm = async (item: Workout) => {
     const launched = await openAlarm(item);
     if (launched) pendingAlarm.current = item;
@@ -153,10 +183,10 @@ export default function Schedule() {
   return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
     <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
     <View style={[local.notice, { backgroundColor: colors.card }]}>
-      <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 42 days…' : `${calendar.data?.events.length ?? 0} events visible in the preview`}</Text></View></View>
+      <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible · ${user?.primaryEmailAddress?.emailAddress ?? 'Google account'}` : 'Grant calendar access to sync booked workout times'}</Text></View></View>
       <View style={local.accountActions}>
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
-        <Pressable accessibilityRole="button" onPress={openGoogleAccountChooser} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="user-plus" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Link New Account</Text></Pressable>
+        <Pressable accessibilityRole="button" disabled={linkingCalendar} onPress={linkGoogleCalendar} style={[local.accountButton, { backgroundColor: colors.secondary, opacity: linkingCalendar ? 0.65 : 1 }]}><Feather name="user-plus" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>{linkingCalendar ? 'Connecting…' : 'Link New Account'}</Text></Pressable>
       </View>
     </View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>

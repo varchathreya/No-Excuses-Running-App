@@ -1,4 +1,5 @@
 - [Android delivery](android-delivery.md) — Expo Go QR testing is the immediate Android path; Google Play publishing needs a separate Android build workflow.
+- [Android map tiles](android-map-tiles.md) — Expo Go SDK 57 has a cross-device Google tile regression; use attributed OSM tiles or a keyed custom build.
 - [Alarm checklist](alarm-checklist.md) — native Clock alarms are tracked as user-confirmed checklist items, never presented as verified device alarm state.
 - [Calendar booking](calendar-booking.md) — workout booking uses Google Calendar’s mobile event-template URL so users choose the final date and time.
 - [Run linkage](run-linkage.md) — unscheduled activities remain in history but never complete or modify a planned workout.
