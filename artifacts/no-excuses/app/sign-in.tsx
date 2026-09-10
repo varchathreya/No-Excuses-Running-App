@@ -3,9 +3,9 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { Feather } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { useAuth, useSSO } from '@clerk/expo';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useColors } from '@/hooks/useColors';
-import { getOAuthRedirectUrl, withOAuthTimeout } from '@/lib/oauth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -32,17 +32,27 @@ export default function SignIn() {
     setBusy(true);
     setError('');
     try {
-      const { createdSessionId, setActive } = await withOAuthTimeout(
-        startSSOFlow({
-          strategy: 'oauth_google',
-          redirectUrl: getOAuthRedirectUrl(),
-        }),
-      );
+      const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
+        strategy: 'oauth_google',
+        redirectUrl: AuthSession.makeRedirectUri(),
+      });
       if (!createdSessionId || !setActive) {
-        throw new Error('Google sign-in did not finish. Please try again.');
+        const status = signIn?.status ?? signUp?.status;
+        throw new Error(
+          status
+            ? `Google sign-in needs another step (${status}). Please try again.`
+            : 'Google sign-in did not finish. Please try again.',
+        );
       }
-      await setActive({ session: createdSessionId });
-      router.replace('/(tabs)');
+      await setActive({
+        session: createdSessionId,
+        navigate: async ({ session }) => {
+          if (session?.currentTask) {
+            throw new Error('Your account requires an additional verification step.');
+          }
+          router.replace('/(tabs)');
+        },
+      });
     } catch (cause) {
       void WebBrowser.dismissBrowser();
       setError(cause instanceof Error ? cause.message : 'Google sign-in failed.');

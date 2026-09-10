@@ -1,4 +1,5 @@
 - [Android delivery](android-delivery.md) — Expo Go QR testing is the immediate Android path; Google Play publishing needs a separate Android build workflow.
+- [Expo Go authentication](expo-go-authentication.md) — Clerk Google SSO must use its canonical loading and session navigation flow; Expo Go still owns Android OAuth activity handoffs.
 - [Android map tiles](android-map-tiles.md) — Expo Go SDK 57 has a cross-device Google tile regression; use attributed OSM tiles or a keyed custom build.
 - [Alarm checklist](alarm-checklist.md) — native Clock alarms are tracked as user-confirmed checklist items, never presented as verified device alarm state.
 - [Calendar booking](calendar-booking.md) — workout booking uses Google Calendar’s mobile event-template URL so users choose the final date and time.
