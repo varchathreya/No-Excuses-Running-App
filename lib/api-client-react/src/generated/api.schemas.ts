@@ -23,10 +23,13 @@ export interface CalendarPreview {
   events: CalendarEvent[];
 }
 
-export interface WorkoutCalendarInput {
-  title: string;
-  start: string;
-  end: string;
+export interface CalendarOAuthStart {
+  authorizationUrl: string;
+  callbackUrl: string;
+}
+
+export interface CalendarOAuthStatus {
+  connected: boolean;
 }
 
 export interface DailyQuote {
@@ -42,12 +45,10 @@ export type GetCalendarPreviewParams = {
 days?: number;
 };
 
-export type CreateWorkoutCalendarEventsBody = {
-  workouts: WorkoutCalendarInput[];
-};
-
-export type CreateWorkoutCalendarEvents200 = {
-  created: number;
+export type CompleteCalendarOAuthParams = {
+code?: string;
+state?: string;
+error?: string;
 };
 
 export type GetDailyQuoteParams = {

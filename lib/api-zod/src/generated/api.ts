@@ -43,19 +43,38 @@ export const GetCalendarPreviewResponse = zod.object({
 
 
 /**
- * @summary Create workout events in the connected calendar
+ * @summary Start Google Calendar authorization
  */
-export const CreateWorkoutCalendarEventsBody = zod.object({
-  "workouts": zod.array(zod.object({
-  "title": zod.string(),
-  "start": zod.string(),
-  "end": zod.string()
-}))
+export const StartCalendarOAuthResponse = zod.object({
+  "authorizationUrl": zod.string(),
+  "callbackUrl": zod.string()
 })
 
-export const CreateWorkoutCalendarEventsResponse = zod.object({
-  "created": zod.number()
+
+/**
+ * @summary Complete Google Calendar authorization
+ */
+export const CompleteCalendarOAuthQueryParams = zod.object({
+  "code": zod.coerce.string().optional(),
+  "state": zod.coerce.string().optional(),
+  "error": zod.coerce.string().optional()
 })
+
+export const CompleteCalendarOAuthResponse = zod.unknown()
+
+
+/**
+ * @summary Get Google Calendar connection status
+ */
+export const GetCalendarOAuthStatusResponse = zod.object({
+  "connected": zod.boolean()
+})
+
+
+/**
+ * @summary Disconnect Google Calendar
+ */
+export const DisconnectCalendarOAuthResponse = zod.void()
 
 
 /**
@@ -70,7 +89,7 @@ export const GetDailyQuoteQueryParams = zod.object({
 
 export const GetDailyQuoteResponse = zod.object({
   "quote": zod.string(),
-  "index": zod.number().int()
+  "index": zod.number()
 })
 
 

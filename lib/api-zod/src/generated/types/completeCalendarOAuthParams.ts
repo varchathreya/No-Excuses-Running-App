@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface WorkoutCalendarInput {
-  title: string;
-  start: string;
-  end: string;
-}
+export type CompleteCalendarOAuthParams = {
+code?: string;
+state?: string;
+error?: string;
+};

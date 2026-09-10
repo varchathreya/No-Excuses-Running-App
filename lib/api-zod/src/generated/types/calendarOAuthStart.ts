@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type CreateWorkoutCalendarEvents200 = {
-  created: number;
-};
+export interface CalendarOAuthStart {
+  authorizationUrl: string;
+  callbackUrl: string;
+}

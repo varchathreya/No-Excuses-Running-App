@@ -20,9 +20,10 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CalendarOAuthStart,
+  CalendarOAuthStatus,
   CalendarPreview,
-  CreateWorkoutCalendarEvents200,
-  CreateWorkoutCalendarEventsBody,
+  CompleteCalendarOAuthParams,
   DailyQuote,
   GetCalendarPreviewParams,
   GetDailyQuoteParams,
@@ -30,7 +31,7 @@ import type {
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType , BodyType } from '../custom-fetch';
+import type { ErrorType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -218,25 +219,25 @@ export function useGetCalendarPreview<TData = Awaited<ReturnType<typeof getCalen
 
 
 
-export const getCreateWorkoutCalendarEventsUrl = () => {
+export const getStartCalendarOAuthUrl = () => {
 
 
 
 
-  return `/api/calendar/workouts`
+  return `/api/calendar/oauth/start`
 }
 
 /**
- * @summary Create workout events in the connected calendar
+ * @summary Start Google Calendar authorization
  */
-export const createWorkoutCalendarEvents = async (createWorkoutCalendarEventsBody: CreateWorkoutCalendarEventsBody, options?: Parameters<typeof customFetch>[1]): Promise<CreateWorkoutCalendarEvents200> => {
+export const startCalendarOAuth = async ( options?: Parameters<typeof customFetch>[1]): Promise<CalendarOAuthStart> => {
 
-  return customFetch<CreateWorkoutCalendarEvents200>(getCreateWorkoutCalendarEventsUrl(),
+  return customFetch<CalendarOAuthStart>(getStartCalendarOAuthUrl(),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(createWorkoutCalendarEventsBody)
+    method: 'POST'
+
+
   }
 );}
 
@@ -244,11 +245,11 @@ export const createWorkoutCalendarEvents = async (createWorkoutCalendarEventsBod
 
 
 
-export const getCreateWorkoutCalendarEventsMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkoutCalendarEvents>>, TError,{data: BodyType<CreateWorkoutCalendarEventsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createWorkoutCalendarEvents>>, TError,{data: BodyType<CreateWorkoutCalendarEventsBody>}, TContext> => {
+export const getStartCalendarOAuthMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext> => {
 
-const mutationKey = ['createWorkoutCalendarEvents'];
+const mutationKey = ['startCalendarOAuth'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -258,10 +259,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createWorkoutCalendarEvents>>, {data: BodyType<CreateWorkoutCalendarEventsBody>}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startCalendarOAuth>>, void> = () => {
 
-          return  createWorkoutCalendarEvents(data,requestOptions)
+
+          return  startCalendarOAuth(requestOptions)
         }
 
 
@@ -271,22 +272,254 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateWorkoutCalendarEventsMutationResult = NonNullable<Awaited<ReturnType<typeof createWorkoutCalendarEvents>>>
-    export type CreateWorkoutCalendarEventsMutationBody = BodyType<CreateWorkoutCalendarEventsBody>
-    export type CreateWorkoutCalendarEventsMutationError = ErrorType<void>
+    export type StartCalendarOAuthMutationResult = NonNullable<Awaited<ReturnType<typeof startCalendarOAuth>>>
+
+    export type StartCalendarOAuthMutationError = ErrorType<void>
 
     /**
- * @summary Create workout events in the connected calendar
+ * @summary Start Google Calendar authorization
  */
-export const useCreateWorkoutCalendarEvents = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createWorkoutCalendarEvents>>, TError,{data: BodyType<CreateWorkoutCalendarEventsBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useStartCalendarOAuth = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof createWorkoutCalendarEvents>>,
+        Awaited<ReturnType<typeof startCalendarOAuth>>,
         TError,
-        {data: BodyType<CreateWorkoutCalendarEventsBody>},
+        void,
         TContext
       > => {
-      return useMutation(getCreateWorkoutCalendarEventsMutationOptions(options));
+      return useMutation(getStartCalendarOAuthMutationOptions(options));
+    }
+
+export const getCompleteCalendarOAuthUrl = (params?: CompleteCalendarOAuthParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/calendar/oauth/callback?${stringifiedParams}` : `/api/calendar/oauth/callback`
+}
+
+/**
+ * @summary Complete Google Calendar authorization
+ */
+export const completeCalendarOAuth = async (params?: CompleteCalendarOAuthParams, options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+  return customFetch<string>(getCompleteCalendarOAuthUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteCalendarOAuthQueryKey = (params?: CompleteCalendarOAuthParams,) => {
+    return [
+    `/api/calendar/oauth/callback`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCompleteCalendarOAuthQueryOptions = <TData = Awaited<ReturnType<typeof completeCalendarOAuth>>, TError = ErrorType<string>>(params?: CompleteCalendarOAuthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof completeCalendarOAuth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCompleteCalendarOAuthQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof completeCalendarOAuth>>> = ({ signal }) => completeCalendarOAuth(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof completeCalendarOAuth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type CompleteCalendarOAuthQueryResult = NonNullable<Awaited<ReturnType<typeof completeCalendarOAuth>>>
+export type CompleteCalendarOAuthQueryError = ErrorType<string>
+
+
+/**
+ * @summary Complete Google Calendar authorization
+ */
+
+export function useCompleteCalendarOAuth<TData = Awaited<ReturnType<typeof completeCalendarOAuth>>, TError = ErrorType<string>>(
+ params?: CompleteCalendarOAuthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof completeCalendarOAuth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getCompleteCalendarOAuthQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCalendarOAuthStatusUrl = () => {
+
+
+
+
+  return `/api/calendar/oauth/status`
+}
+
+/**
+ * @summary Get Google Calendar connection status
+ */
+export const getCalendarOAuthStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<CalendarOAuthStatus> => {
+
+  return customFetch<CalendarOAuthStatus>(getGetCalendarOAuthStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCalendarOAuthStatusQueryKey = () => {
+    return [
+    `/api/calendar/oauth/status`
+    ] as const;
+    }
+
+
+export const getGetCalendarOAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCalendarOAuthStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCalendarOAuthStatus>>> = ({ signal }) => getCalendarOAuthStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCalendarOAuthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getCalendarOAuthStatus>>>
+export type GetCalendarOAuthStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get Google Calendar connection status
+ */
+
+export function useGetCalendarOAuthStatus<TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCalendarOAuthStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisconnectCalendarOAuthUrl = () => {
+
+
+
+
+  return `/api/calendar/oauth/connection`
+}
+
+/**
+ * @summary Disconnect Google Calendar
+ */
+export const disconnectCalendarOAuth = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDisconnectCalendarOAuthUrl(),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisconnectCalendarOAuthMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext> => {
+
+const mutationKey = ['disconnectCalendarOAuth'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, void> = () => {
+
+
+          return  disconnectCalendarOAuth(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisconnectCalendarOAuthMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectCalendarOAuth>>>
+
+    export type DisconnectCalendarOAuthMutationError = ErrorType<void>
+
+    /**
+ * @summary Disconnect Google Calendar
+ */
+export const useDisconnectCalendarOAuth = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disconnectCalendarOAuth>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDisconnectCalendarOAuthMutationOptions(options));
     }
 
 export const getGetDailyQuoteUrl = (params?: GetDailyQuoteParams,) => {

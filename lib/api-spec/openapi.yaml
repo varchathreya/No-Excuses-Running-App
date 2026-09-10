@@ -51,36 +51,73 @@ paths:
                 $ref: "#/components/schemas/CalendarPreview"
         "502":
           description: Calendar connection unavailable
-  /calendar/workouts:
+  /calendar/oauth/start:
     post:
-      operationId: createWorkoutCalendarEvents
+      operationId: startCalendarOAuth
       tags: [calendar]
-      summary: Create workout events in the connected calendar
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                workouts:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/WorkoutCalendarInput"
-              required: [workouts]
+      summary: Start Google Calendar authorization
       responses:
         "200":
-          description: Created events
+          description: Google authorization details
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  created:
-                    type: number
-                required: [created]
-        "502":
-          description: Calendar connection unavailable
+                $ref: "#/components/schemas/CalendarOAuthStart"
+        "401":
+          description: Sign in required
+  /calendar/oauth/callback:
+    get:
+      operationId: completeCalendarOAuth
+      tags: [calendar]
+      summary: Complete Google Calendar authorization
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema: { type: string }
+        - name: state
+          in: query
+          required: false
+          schema: { type: string }
+        - name: error
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Authorization result page
+          content:
+            text/html:
+              schema: { type: string }
+        "400":
+          description: Invalid or declined authorization
+          content:
+            text/html:
+              schema: { type: string }
+  /calendar/oauth/status:
+    get:
+      operationId: getCalendarOAuthStatus
+      tags: [calendar]
+      summary: Get Google Calendar connection status
+      responses:
+        "200":
+          description: Calendar connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarOAuthStatus"
+        "401":
+          description: Sign in required
+  /calendar/oauth/connection:
+    delete:
+      operationId: disconnectCalendarOAuth
+      tags: [calendar]
+      summary: Disconnect Google Calendar
+      responses:
+        "204":
+          description: Calendar disconnected
+        "401":
+          description: Sign in required
   /quotes/daily:
     get:
       operationId: getDailyQuote
@@ -128,17 +165,21 @@ components:
           items:
             $ref: "#/components/schemas/CalendarEvent"
       required: [connected, calendarName, events]
-    WorkoutCalendarInput:
+    CalendarOAuthStart:
       type: object
       properties:
-        title: { type: string }
-        start: { type: string }
-        end: { type: string }
-      required: [title, start, end]
+        authorizationUrl: { type: string }
+        callbackUrl: { type: string }
+      required: [authorizationUrl, callbackUrl]
+    CalendarOAuthStatus:
+      type: object
+      properties:
+        connected: { type: boolean }
+      required: [connected]
     DailyQuote:
       type: object
       properties:
         quote: { type: string }
-        index: { type: integer }
+        index: { type: number }
       required: [quote, index]
 
