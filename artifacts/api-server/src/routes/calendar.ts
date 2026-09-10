@@ -17,6 +17,7 @@ import {
 } from "../lib/googleCalendarOAuth";
 
 const calendarRouter: IRouter = Router();
+const CALENDAR_APP_REDIRECT = "no-excuses://calendar-connected";
 
 function rfc3339(days: number) {
   const start = new Date();
@@ -47,6 +48,10 @@ function oauthResultPage(success: boolean) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>body{margin:0;background:#101410;color:#f5f7f2;font:16px system-ui;display:grid;min-height:100vh;place-items:center}main{max-width:420px;padding:32px;text-align:center}h1{font-size:26px}p{color:#bdc7bb;line-height:1.5}</style></head><body><main><h1>${title}</h1><p>${message}</p></main></body></html>`;
 }
 
+function calendarAppRedirect(status: "connected" | "error") {
+  return `${CALENDAR_APP_REDIRECT}?status=${status}`;
+}
+
 calendarRouter.post("/calendar/oauth/start", async (req, res): Promise<void> => {
   const { userId } = getAuth(req);
   if (!userId) {
@@ -72,26 +77,25 @@ calendarRouter.get(
   async (req, res): Promise<void> => {
     res.set("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'");
     const parsed = CompleteCalendarOAuthQueryParams.safeParse(req.query);
-    if (
-      !parsed.success ||
-      parsed.data.error ||
-      !parsed.data.code ||
-      !parsed.data.state
-    ) {
+    if (!parsed.success || !parsed.data.state) {
       res.status(400).type("html").send(oauthResultPage(false));
       return;
     }
     try {
       const state = verifyCalendarOAuthState(parsed.data.state);
+      if (parsed.data.error || !parsed.data.code) {
+        res.redirect(302, calendarAppRedirect("error"));
+        return;
+      }
       await completeCalendarAuthorization(
         state.sub,
         state.redirectUri,
         parsed.data.code,
       );
-      res.status(200).type("html").send(oauthResultPage(true));
+      res.redirect(302, calendarAppRedirect("connected"));
     } catch (error) {
       req.log.warn({ err: error }, "Google Calendar authorization callback failed");
-      res.status(400).type("html").send(oauthResultPage(false));
+      res.redirect(302, calendarAppRedirect("error"));
     }
   },
 );

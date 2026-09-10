@@ -12,6 +12,7 @@ import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -125,7 +126,15 @@ export default function Schedule() {
   const linkGoogleCalendar = async () => {
     try {
       const authorization = await startCalendarOAuth.mutateAsync();
-      await WebBrowser.openBrowserAsync(authorization.authorizationUrl);
+      const result = await WebBrowser.openAuthSessionAsync(
+        authorization.authorizationUrl,
+        getCalendarOAuthRedirectUrl(),
+      );
+      if (result.type !== 'success') return;
+      if (result.url.includes('status=error')) {
+        Alert.alert('Calendar connection failed', 'Google Calendar permission was not completed.');
+        return;
+      }
       await calendar.refetch();
     } catch (cause) {
       void WebBrowser.dismissBrowser();

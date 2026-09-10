@@ -3,9 +3,9 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 import { Feather } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { useAuth, useSSO } from '@clerk/expo';
-import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useColors } from '@/hooks/useColors';
+import { getOAuthRedirectUrl } from '@/lib/oauth';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -34,7 +34,7 @@ export default function SignIn() {
     try {
       const { createdSessionId, setActive, signIn, signUp } = await startSSOFlow({
         strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri(),
+        redirectUrl: getOAuthRedirectUrl(),
       });
       if (!createdSessionId || !setActive) {
         const status = signIn?.status ?? signUp?.status;

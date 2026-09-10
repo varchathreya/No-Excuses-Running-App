@@ -30,6 +30,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="calendar-connected" options={{ headerShown: false }} />
       <Stack.Screen name="runs" options={{ headerShown: false }} />
       <Stack.Screen name="runs/[id]" options={{ headerShown: false }} />
     </Stack>
