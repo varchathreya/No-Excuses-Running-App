@@ -1,0 +1,23 @@
+Render Error
+
+No QueryClient set, use QueryClientProvider to set one
+
+Source:
+C:\NE2\No-Excuses-Running-App\lib\api-client-react\src\generated\api.ts (598:24)
+
+Call Stack:
+useQueryClient (C:\NE2\No-Excuses-Running-App\node_modules\.pnpm\@tanstack+react-query@5.101.4_react@19.2.3\node_modules\@tanstack\react-query\build\modern\QueryClientProvider.js:15)
+useBaseQuery (C:\NE2\No-Excuses-Running-App\node_modules\.pnpm\@tanstack+react-query@5.101.4_react@19.2.3\node_modules\@tanstack\react-query\build\modern\useBaseQuery.js:30)
+useQuery (C:\NE2\No-Excuses-Running-App\node_modules\.pnpm\@tanstack+react-query@5.101.4_react@19.2.3\node_modules\@tanstack\react-query\build\modern\useQuery.js:7)
+useGetDailyQuote (C:\NE2\No-Excuses-Running-App\lib\api-client-react\src\generated\api.ts:598)
+Today (C:\NE2\No-Excuses-Running-App\artifacts\no-excuses\app\(tabs)\index.tsx:35)
+callComponent.react_stack_bottom_frame (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:17130)
+renderWithHooks (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:5648)
+updateFunctionComponent (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:8081)
+beginWork (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:9340)
+runWithFiberInDEV (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:697)
+performUnitOfWork (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:14134)
+workLoopSync (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:13966)
+renderRootSync (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:13947)
+performWorkOnRoot (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:13160)
+performWorkOnRootViaSchedulerTask (C:\NE2\No-Excuses-Running-App\node_modules\react-native\Libraries\Renderer\implementations\ReactFabric-dev.js:3673)
