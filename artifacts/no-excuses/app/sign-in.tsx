@@ -50,7 +50,7 @@ export default function SignIn() {
           if (session?.currentTask) {
             throw new Error('Your account requires an additional verification step.');
           }
-          router.replace('/(tabs)');
+           router.replace('/connect-calendar');
         },
       });
     } catch (cause) {
@@ -62,7 +62,7 @@ export default function SignIn() {
   }, [router, startSSOFlow]);
 
   if (!isLoaded) return null;
-  if (isSignedIn) return <Redirect href="/(tabs)" />;
+  if (isSignedIn) return <Redirect href="/connect-calendar" />;
 
   return (
     <View style={[local.screen, { backgroundColor: colors.background }]}>
@@ -72,7 +72,7 @@ export default function SignIn() {
       <Text style={[local.eyebrow, { color: colors.primary }]}>NO EXCUSES</Text>
       <Text style={[local.title, { color: colors.foreground }]}>Your plan. Your calendar.</Text>
       <Text style={[local.body, { color: colors.mutedForeground }]}>
-        Sign in so No Excuses can connect the Google Calendar you choose without sharing another user&apos;s events.
+        Sign in to create your No Excuses account, then connect the Google Calendar you choose without sharing another user&apos;s events.
       </Text>
       <Pressable
         accessibilityRole="button"
@@ -91,7 +91,7 @@ export default function SignIn() {
       </Pressable>
       {!!error && <Text style={[local.error, { color: colors.destructive }]}>{error}</Text>}
       <Text style={[local.note, { color: colors.mutedForeground }]}>
-        Calendar access is requested separately on the Schedule screen.
+        You will review Calendar access in the next step. You can also skip it and connect later from Schedule.
       </Text>
     </View>
   );

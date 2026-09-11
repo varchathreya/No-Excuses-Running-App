@@ -18,7 +18,15 @@ import { setAuthTokenGetter, setBaseUrl } from '@workspace/api-client-react';
 import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+function getApiBaseUrl() {
+  const configured = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_DOMAIN;
+  if (!configured) {
+    throw new Error('EXPO_PUBLIC_API_URL or EXPO_PUBLIC_DOMAIN is required.');
+  }
+  return /^https?:\/\//i.test(configured) ? configured.replace(/\/+$/, '') : `https://${configured.replace(/\/+$/, '')}`;
+}
+
+setBaseUrl(getApiBaseUrl());
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -30,6 +38,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="connect-calendar" options={{ headerShown: false }} />
       <Stack.Screen name="calendar-connected" options={{ headerShown: false }} />
       <Stack.Screen name="runs" options={{ headerShown: false }} />
       <Stack.Screen name="runs/[id]" options={{ headerShown: false }} />

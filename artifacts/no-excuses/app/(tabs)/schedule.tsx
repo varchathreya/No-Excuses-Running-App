@@ -7,12 +7,13 @@ import {
 } from '@workspace/api-client-react';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { isWorkoutAvailableToday, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
+import { BrandedModal } from '@/components/BrandedModal';
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -68,12 +69,10 @@ function formatEventTime(start?: string) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function WorkoutRow({ item, booked, calendarStart, onAlarmRequested }: { item: Workout; booked: boolean; calendarStart?: string; onAlarmRequested: (item: Workout) => void }) {
+function WorkoutRow({ item, booked, calendarStart, onAlarmRequested, onStartRequested }: { item: Workout; booked: boolean; calendarStart?: string; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
   const colors = useColors();
-  const router = useRouter();
   const { setAlarmChecked } = useApp();
   const weekday = WEEKDAYS[workoutWeekdayIndex(item.day)];
-  const start = () => router.push(item.type === 'rehab' ? `/rehab?workoutId=${item.id}` : `/run?workoutId=${item.id}`);
   const alarmChecked = !!item.alarmSet;
   const alarmPress = () => {
     if (alarmChecked) {
@@ -103,7 +102,7 @@ function WorkoutRow({ item, booked, calendarStart, onAlarmRequested }: { item: W
         ) : (
           <Pressable testID={`book-${item.id}`} onPress={() => openCalendar(item)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : 'Book'}</Text></Pressable>
         )}
-        <Pressable testID={`start-${item.id}`} onPress={start} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
+        <Pressable testID={`start-${item.id}`} onPress={() => onStartRequested(item)} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
         <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityLabel={alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} accessibilityHint={alarmChecked ? 'Uncheck here if you remove it in Clock' : undefined} accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={[local.smallButton, { borderColor: alarmChecked ? colors.accent : colors.border }]}>
           {alarmChecked ? <View style={[local.checkbox, { borderColor: colors.accent, backgroundColor: colors.accent }]}><Feather name="check" size={13} color={colors.accentForeground} /></View> : <Feather name="clock" size={16} color={colors.foreground} />}
           <Text style={[local.smallText, { color: alarmChecked ? colors.accent : colors.foreground }]}>{alarmChecked ? 'Alarm set' : 'Alarm'}</Text>
@@ -115,14 +114,24 @@ function WorkoutRow({ item, booked, calendarStart, onAlarmRequested }: { item: W
 
 export default function Schedule() {
   const colors = useColors();
+  const router = useRouter();
   const { workouts, setAlarmChecked } = useApp();
   const [week, setWeek] = useState(1);
+  const [pendingStart, setPendingStart] = useState<Workout | null>(null);
+  const [pendingAlarmConfirmation, setPendingAlarmConfirmation] = useState<Workout | null>(null);
   const calendar = useGetCalendarPreview({ days: 42 });
   const startCalendarOAuth = useStartCalendarOAuth();
   const disconnectCalendarOAuth = useDisconnectCalendarOAuth();
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
+  const navigateToWorkout = (item: Workout) => {
+    if (!isWorkoutAvailableToday(item.day)) {
+      setPendingStart(item);
+      return;
+    }
+    router.push(item.type === 'rehab' ? `/rehab?workoutId=${item.id}` : `/run?workoutId=${item.id}`);
+  };
   const linkGoogleCalendar = async () => {
     try {
       const authorization = await startCalendarOAuth.mutateAsync();
@@ -176,14 +185,7 @@ export default function Schedule() {
         const pending = pendingAlarm.current;
         if (pending) {
           pendingAlarm.current = null;
-          Alert.alert(
-            'Did you save the alarm?',
-            `Android does not let No Excuses verify alarms saved in another Clock app. Confirm only if you saved the 6:00 AM alarm for ${pending.title}.`,
-            [
-              { text: 'Not yet', style: 'cancel' },
-              { text: 'Mark as set', onPress: () => setAlarmChecked(pending.id, true) },
-            ],
-          );
+          setPendingAlarmConfirmation(pending);
         }
       }
       previousAppState.current = nextState;
@@ -214,12 +216,34 @@ export default function Schedule() {
       </View>
     </View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>
-    <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
+     <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
     {visible.map((item) => {
       const marker = `W${item.week}D${item.day}`;
       const calendarEvent = calendar.data?.events.find((event) => event.summary.includes(marker));
-      return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} onAlarmRequested={requestAlarm} />;
-    })}
+       return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
+     })}
+     <BrandedModal
+       visible={!!pendingStart}
+       title={`Please wait until ${pendingStart ? WEEKDAYS[workoutWeekdayIndex(pendingStart.day)] : ''}`}
+       message="This planned session can only be completed on its scheduled day. You can still open it on the correct day."
+       onRequestClose={() => setPendingStart(null)}
+       primaryLabel="Okay"
+       onPrimaryPress={() => setPendingStart(null)}
+     />
+     <BrandedModal
+       visible={!!pendingAlarmConfirmation}
+       icon="clock"
+       title="Did you save the alarm?"
+       message={pendingAlarmConfirmation ? `Android does not let No Excuses verify alarms saved in another Clock app. Confirm only if you saved the 6:00 AM alarm for ${pendingAlarmConfirmation.title}.` : ''}
+       onRequestClose={() => setPendingAlarmConfirmation(null)}
+       primaryLabel="Mark as set"
+       onPrimaryPress={() => {
+         if (pendingAlarmConfirmation) setAlarmChecked(pendingAlarmConfirmation.id, true);
+         setPendingAlarmConfirmation(null);
+       }}
+       secondaryLabel="Not yet"
+       onSecondaryPress={() => setPendingAlarmConfirmation(null)}
+     />
   </Screen>;
 }
 

@@ -8,6 +8,7 @@ import { useColors } from '@/hooks/useColors';
 import NativeRouteMap from '@/components/NativeRouteMap';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { BrandedModal } from '@/components/BrandedModal';
 
 const EARTH_RADIUS = 6371000;
 const PACE_WINDOW_MS = 12000;
@@ -342,16 +343,14 @@ export default function Run() {
         )}
       </View>
 
-      <Modal transparent animationType="fade" visible={showWrongDay} onRequestClose={() => setShowWrongDay(false)}>
-        <View style={local.modalBackdrop}>
-          <View style={[local.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={[local.modalIcon, { backgroundColor: colors.secondary }]}><Feather name="calendar" size={24} color={colors.primary} /></View>
-            <Text style={[local.modalTitle, { color: colors.foreground }]}>Please wait until {WEEKDAYS[workoutWeekdayIndex(requestedWorkout?.day ?? 1)]}</Text>
-            <Text style={[styles.muted, { color: colors.mutedForeground }]}>This planned session can only be completed on its scheduled day. You can still record an unscheduled run now.</Text>
-            <Button label="Okay" onPress={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }} />
-          </View>
-        </View>
-      </Modal>
+      <BrandedModal
+        visible={showWrongDay}
+        title={`Please wait until ${WEEKDAYS[workoutWeekdayIndex(requestedWorkout?.day ?? 1)]}`}
+        message="This planned session can only be completed on its scheduled day. You can still record an unscheduled run now."
+        onRequestClose={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}
+        primaryLabel="Okay"
+        onPrimaryPress={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}
+      />
 
       <Modal transparent animationType="fade" visible={showStartChoice} onRequestClose={() => setShowStartChoice(false)}>
         <View style={local.modalBackdrop}>

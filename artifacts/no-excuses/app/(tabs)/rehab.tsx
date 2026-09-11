@@ -6,6 +6,7 @@ import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
 import { isWorkoutAvailableToday, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BrandedModal } from '@/components/BrandedModal';
 
 const exercises = [
   { title: 'Soleus Wall Sit Hold', detail: '3 × 45 sec', duration: 45 },
@@ -80,14 +81,14 @@ export default function Rehab() {
             <Text style={[styles.muted, { color: colors.mutedForeground }]}>{workout.focus}</Text>
           </View>
         )}
-        {unavailable && showUnavailable && (
-          <View style={[local.unavailable, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
-            <Text style={[local.unavailableTitle, { color: colors.foreground }]}>
-              Please wait until {WEEKDAYS[workoutWeekdayIndex(workout?.day ?? 1)]} to complete this session
-            </Text>
-            <Button label="Okay" secondary onPress={() => setShowUnavailable(false)} />
-          </View>
-        )}
+         <BrandedModal
+           visible={unavailable && showUnavailable}
+           title={`Please wait until ${WEEKDAYS[workoutWeekdayIndex(workout?.day ?? 1)]}`}
+           message="This planned session can only be completed on its scheduled day. You can still review the routine now, but the timer stays locked until then."
+           onRequestClose={() => setShowUnavailable(false)}
+           primaryLabel="Okay"
+           onPrimaryPress={() => setShowUnavailable(false)}
+         />
         <View style={[local.progress, { backgroundColor: unavailable ? colors.secondary : colors.card }]}>
           <View style={[local.track, { backgroundColor: colors.border }]}>
             <View style={[local.progressFill, { backgroundColor: colors.accent, width: `${(completedExercises / 3) * 100}%` }]} />
