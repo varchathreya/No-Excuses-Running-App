@@ -1,0 +1,81 @@
+PS C:\NE2\No-Excuses-Running-App> pnpm install
+Scope: all 9 workspace projects
+
+   ╭──────────────────────────────────────────────────────────────────╮
+   │                                                                  │
+   │                Update available! 9.15.9 → 12.4.1.                │
+   │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v12.4.1   │
+   │                Run "pnpm add -g pnpm" to update.                 │
+   │                                                                  │
+   ╰──────────────────────────────────────────────────────────────────╯
+
+artifacts/mockup-sandbox                 |  WARN  deprecated recharts@2.15.4
+ WARN  7 deprecated subdependencies found: @esbuild-kit/core-utils@3.3.2, @esbuild-kit/esm-loader@2.6.5, @xmldom/xmldom@0.8.14, @xmldom/xmldom@0.9.11, crypto-js@4.2.0, uuid@3.4.0, uuid@7.0.3
+Packages: +1084
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1235, reused 1083, downloaded 1, added 1084, done
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+└─ Done in 270ms
+
+dependencies:
++ @replit/connectors-sdk 0.4.1
+
+devDependencies:
++ prettier 3.9.6
++ typescript 5.9.3
+
+ WARN  Issues with peer dependencies found
+artifacts/api-server
+└─┬ esbuild-plugin-pino 2.3.3
+  └── ✕ unmet peer esbuild@">=0.25.0 <=0.25.8": found 0.27.3
+
+artifacts/no-excuses
+├─┬ react-native 0.86.3
+│ └─┬ @react-native/community-cli-plugin 0.86.3
+│   └── ✕ missing peer @react-native/metro-config@0.86.3
+├─┬ react-native-worklets 0.10.1
+│ └── ✕ missing peer @react-native/metro-config@"*"
+└─┬ @clerk/expo 4.6.5
+  └─┬ @clerk/clerk-js 6.31.0
+    ├─┬ @solana/wallet-adapter-base 0.9.27
+    │ └── ✕ missing peer @solana/web3.js@^1.98.0
+    ├─┬ @solana/wallet-standard 1.1.4
+    │ └─┬ @solana/wallet-standard-wallet-adapter 1.1.6
+    │   ├─┬ @solana/wallet-standard-wallet-adapter-react 1.1.6
+    │   │ └─┬ @solana/wallet-standard-wallet-adapter-base 1.1.5
+    │   │   ├── ✕ missing peer @solana/web3.js@^1.98.0
+    │   │   ├── ✕ missing peer bs58@^6.0.0
+    │   │   └─┬ @solana/wallet-adapter-base 0.9.27
+    │   │     └── ✕ missing peer @solana/web3.js@^1.98.0
+    │   └─┬ @solana/wallet-standard-wallet-adapter-base 1.1.5
+    │     ├── ✕ missing peer @solana/web3.js@^1.98.0
+    │     └── ✕ missing peer bs58@^6.0.0
+    └─┬ @solana/wallet-adapter-react 0.15.39
+      ├── ✕ missing peer @solana/web3.js@^1.98.0
+      ├─┬ @solana/wallet-adapter-base 0.9.27
+      │ └── ✕ missing peer @solana/web3.js@^1.98.0
+      ├─┬ @solana-mobile/wallet-adapter-mobile 2.3.0
+      │ ├── ✕ missing peer @solana/web3.js@^1.98.4
+      │ ├─┬ @solana/wallet-adapter-base 0.9.27
+      │ │ └── ✕ missing peer @solana/web3.js@^1.98.0
+      │ └─┬ @solana-mobile/mobile-wallet-adapter-protocol-web3js 2.3.0
+      │   └── ✕ missing peer @solana/web3.js@^1.98.4
+      └─┬ @solana/wallet-standard-wallet-adapter-react 1.1.6
+        ├── ✕ missing peer @solana/web3.js@^1.98.0
+        └── ✕ missing peer bs58@^6.0.0
+Peer dependencies that should be installed:
+  @react-native/metro-config@0.86.3    @solana/web3.js@">=1.98.4 <2.0.0-0"  bs58@">=6.0.0 <7.0.0-0"
+
+Done in 48.3s using pnpm v9.15.9
+PS C:\NE2\No-Excuses-Running-App> https://no-excuses-running-app.replit.app/api/healthz
+https://no-excuses-running-app.replit.app/api/healthz : The term 'https://no-excuses-running-app.replit.app/api/healthz' is not recognized as the name of a cmdlet,
+function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ https://no-excuses-running-app.replit.app/api/healthz
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (https://no-excu...app/api/healthz:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+PS C:\NE2\No-Excuses-Running-App> pnpm --filter @workspace/no-excuses run dev:local
+None of the selected packages has a "dev:local" script
+PS C:\NE2\No-Excuses-Running-App>
