@@ -1,0 +1,21 @@
+All done. Report:
+
+## Git sync
+- **Branch:** `main` — **synchronized commit:** `87d4413` ("Update memory documentation and configure Metro bundler for React Query"), fast-forwarded from `5a5f941`.
+- **Remote verified:** `https://github.com/varchathreya/No-Excuses-Running-App.git`. `.env.local` untouched (gitignored, not staged/exposed).
+- **Local changes found:** Yes — `.npmrc` (`node-linker=hoisted`), `app/_layout.tsx`, `package.json` (`dev:local`, webview/deps), `pnpm-lock.yaml`. Untracked `build_run*.log`/`metro_run*.log` also present.
+- **Preservation:** Stashed them, pulled, then restored. Conflicts arose (both sides touched `_layout.tsx`, `package.json`, `pnpm-lock.yaml`). I merged carefully keeping **both** sides: upstream's `getApiBaseUrl()` (which already supersedes the local `EXPO_PUBLIC_API_URL` intent) + upstream dev-script fix, and the local `dev:local` script, deps duplication, and hoisted linker. Lockfile regenerated via `pnpm install`. Nothing discarded — **stash `stash@{0}` is still retained as a backup** (drop it when you're satisfied).
+
+## Metro fix
+- **Confirmed:** `artifacts/no-excuses/metro.config.js` contains `config.resolver.extraNodeModules` with `'@tanstack/react-query'` mapped to `path.resolve(__dirname, 'node_modules/@tanstack/react-query')`.
+
+## Android test cycle (physical Moto G5 Plus, `ZY224LNJKD`, no emulator)
+- **TypeScript check:** `pnpm --filter @workspace/no-excuses run typecheck` — passed.
+- **Metro:** started via `pnpm --filter @workspace/no-excuses run dev:local` on `localhost:8081` (killed the stale pre-pull Metro PID 9272 that was holding 8081).
+- **Build/install:** `pnpm exec expo run:android --device Moto_G__5__Plus` → `BUILD SUCCESSFUL in 1m 8s`; installed (replace mode, **no uninstall**, `lastUpdateTime` 14:39).
+- **APK path:** `C:\NE2\No-Excuses-Running-App\artifacts\no-excuses\android\app\build\outputs\apk\debug\app-debug.apk`
+- **Launch:** `adb reverse tcp:8081 tcp:8081` set; app switched to `MainActivity`, performed a fresh `loadJSBundleFromMetro()` (delta: 2291 modules) and JS ran:
+  `15:26:20 I/ReactNativeJS: Running "main" with {"rootTag":1,"initialProps":{},"fabric":true}`
+- **QueryClient error:** **Resolved.** Logcat across the full startup shows zero `No QueryClient set` / `FATAL EXCEPTION` / `ReactNativeJS` error lines. (The device's physical screen returns a black framebuffer, so I verified via the exact same logcat markers your prior successful report used.)
+
+Note: the `PacProcessor ClassNotFoundException` lines come from Chrome's WebView internals on this Android version — benign, didn't affect the app.
