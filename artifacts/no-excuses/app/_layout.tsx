@@ -51,12 +51,14 @@ function RootLayoutNav() {
 }
 
 function ApiAuthentication() {
-  const { getToken } = useAuth();
+  const { getToken, isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    setAuthTokenGetter(() => getToken());
+    if (!isLoaded) return;
+
+    setAuthTokenGetter(isSignedIn ? getToken : () => null);
     return () => setAuthTokenGetter(null);
-  }, [getToken]);
+  }, [getToken, isLoaded, isSignedIn]);
 
   return null;
 }

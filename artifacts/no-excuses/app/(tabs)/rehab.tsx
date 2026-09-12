@@ -7,12 +7,18 @@ import { useLocalSearchParams } from 'expo-router';
 import { isWorkoutAvailableToday, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandedModal } from '@/components/BrandedModal';
+import Svg, { Circle } from 'react-native-svg';
 
 const exercises = [
   { title: 'Soleus Wall Sit Hold', detail: '3 × 45 sec', duration: 45 },
   { title: 'Single-Leg Isometric Calf Hold', detail: '3 × 45 sec', duration: 45 },
   { title: 'Spanish Squat Isometric Hold', detail: '3 × 30 sec', duration: 30 },
 ];
+
+const TIMER_SIZE = 150;
+const TIMER_STROKE = 5;
+const TIMER_RADIUS = (TIMER_SIZE - TIMER_STROKE) / 2;
+const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 
 export default function Rehab() {
   const colors = useColors();
@@ -31,6 +37,8 @@ export default function Rehab() {
   const completedExercises = sets.filter((count) => count >= 3).length;
   const allComplete = completedExercises === exercises.length;
   const current = exercises[active];
+  const timerProgress = current.duration > 0 ? Math.max(0, Math.min(1, seconds / current.duration)) : 0;
+  const timerOffset = TIMER_CIRCUMFERENCE * (1 - timerProgress);
 
   useEffect(() => {
     setActive(0);
@@ -136,9 +144,33 @@ export default function Rehab() {
           <Text style={[local.playerEyebrow, { color: colors.primary }]}>EXERCISE {active + 1} · ISOMETRIC</Text>
           <Text style={[local.playerTitle, { color: colors.foreground }]}>{current.title}</Text>
           <Text style={[styles.muted, { color: colors.mutedForeground }]}>Place the ball of your foot on a step. Drive your heel up and hold a neutral ankle position.</Text>
-          <View style={[local.timer, { borderColor: started ? colors.primary : colors.border }]}>
-            <Text style={[local.timerText, { color: colors.foreground }]}>00:{seconds.toString().padStart(2, '0')}</Text>
-            <Text style={[styles.muted, { color: colors.mutedForeground }]}>SET {Math.min(sets[active] + 1, 3)} OF 3</Text>
+          <View style={local.timer}>
+            <Svg width={TIMER_SIZE} height={TIMER_SIZE} viewBox={`0 0 ${TIMER_SIZE} ${TIMER_SIZE}`} style={local.timerRing}>
+              <Circle
+                cx={TIMER_SIZE / 2}
+                cy={TIMER_SIZE / 2}
+                r={TIMER_RADIUS}
+                stroke={colors.border}
+                strokeWidth={TIMER_STROKE}
+                fill="none"
+              />
+              <Circle
+                cx={TIMER_SIZE / 2}
+                cy={TIMER_SIZE / 2}
+                r={TIMER_RADIUS}
+                stroke={seconds < current.duration ? colors.destructive : colors.border}
+                strokeWidth={TIMER_STROKE}
+                strokeLinecap="round"
+                strokeDasharray={`${TIMER_CIRCUMFERENCE} ${TIMER_CIRCUMFERENCE}`}
+                strokeDashoffset={timerOffset}
+                fill="none"
+                transform={`rotate(-90 ${TIMER_SIZE / 2} ${TIMER_SIZE / 2})`}
+              />
+            </Svg>
+            <View style={local.timerContent}>
+              <Text style={[local.timerText, { color: colors.foreground }]}>00:{seconds.toString().padStart(2, '0')}</Text>
+              <Text style={[styles.muted, { color: colors.mutedForeground }]}>SET {Math.min(sets[active] + 1, 3)} OF 3</Text>
+            </View>
           </View>
           <Button
             label={started ? 'Pause timer' : `Start ${current.duration} sec timer`}
@@ -184,6 +216,8 @@ const local = StyleSheet.create({
   player: { borderRadius: 22, padding: 19, marginTop: 18, marginBottom: 16 },
   playerEyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.3, fontSize: 10 },
   playerTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, marginVertical: 10 },
-  timer: { width: 150, height: 150, borderRadius: 75, borderWidth: 5, alignSelf: 'center', marginVertical: 20, alignItems: 'center', justifyContent: 'center' },
+  timer: { width: TIMER_SIZE, height: TIMER_SIZE, alignSelf: 'center', marginVertical: 20, alignItems: 'center', justifyContent: 'center' },
+  timerRing: { position: 'absolute' },
+  timerContent: { alignItems: 'center', justifyContent: 'center' },
   timerText: { fontFamily: 'Inter_700Bold', fontSize: 34, letterSpacing: -1 },
 });

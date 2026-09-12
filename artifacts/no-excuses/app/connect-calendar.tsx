@@ -7,13 +7,14 @@ import { useRouter } from 'expo-router';
 import { useStartCalendarOAuth } from '@workspace/api-client-react';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 import { useColors } from '@/hooks/useColors';
+import { withFreshAuthToken } from '@/lib/api-auth';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function ConnectCalendar() {
   const colors = useColors();
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const startCalendarOAuth = useStartCalendarOAuth();
   const started = useRef(false);
   const [error, setError] = useState('');
@@ -23,7 +24,9 @@ export default function ConnectCalendar() {
     started.current = true;
     setError('');
     try {
-      const authorization = await startCalendarOAuth.mutateAsync();
+      const authorization = await withFreshAuthToken(getToken, () =>
+        startCalendarOAuth.mutateAsync(),
+      );
       const result = await WebBrowser.openAuthSessionAsync(
         authorization.authorizationUrl,
         getCalendarOAuthRedirectUrl(),
@@ -40,7 +43,7 @@ export default function ConnectCalendar() {
       setError(cause instanceof Error ? cause.message : 'Google Calendar could not be connected.');
       started.current = false;
     }
-  }, [router, startCalendarOAuth]);
+  }, [getToken, router, startCalendarOAuth]);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) void begin();

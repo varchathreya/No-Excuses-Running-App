@@ -14,6 +14,8 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 import { BrandedModal } from '@/components/BrandedModal';
+import { withFreshAuthToken } from '@/lib/api-auth';
+import { useAuth } from '@clerk/expo';
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -116,10 +118,19 @@ export default function Schedule() {
   const colors = useColors();
   const router = useRouter();
   const { workouts, setAlarmChecked } = useApp();
+  const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const [week, setWeek] = useState(1);
   const [pendingStart, setPendingStart] = useState<Workout | null>(null);
   const [pendingAlarmConfirmation, setPendingAlarmConfirmation] = useState<Workout | null>(null);
-  const calendar = useGetCalendarPreview({ days: 42 });
+  const calendar = useGetCalendarPreview(
+    { days: 42 },
+    {
+      query: {
+        queryKey: ['/api/calendar/preview', { days: 42 }],
+        enabled: authLoaded && !!isSignedIn,
+      },
+    },
+  );
   const startCalendarOAuth = useStartCalendarOAuth();
   const disconnectCalendarOAuth = useDisconnectCalendarOAuth();
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
@@ -134,7 +145,13 @@ export default function Schedule() {
   };
   const linkGoogleCalendar = async () => {
     try {
-      const authorization = await startCalendarOAuth.mutateAsync();
+      if (!authLoaded || !isSignedIn) {
+        router.replace('/sign-in');
+        return;
+      }
+      const authorization = await withFreshAuthToken(getToken, () =>
+        startCalendarOAuth.mutateAsync(),
+      );
       const result = await WebBrowser.openAuthSessionAsync(
         authorization.authorizationUrl,
         getCalendarOAuthRedirectUrl(),
@@ -164,7 +181,9 @@ export default function Schedule() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await disconnectCalendarOAuth.mutateAsync();
+              await withFreshAuthToken(getToken, () =>
+                disconnectCalendarOAuth.mutateAsync(),
+              );
               await calendar.refetch();
             } catch {
               Alert.alert('Disconnect failed', 'Google Calendar could not be disconnected. Try again.');
@@ -204,16 +223,26 @@ export default function Schedule() {
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
          <Pressable
            accessibilityRole="button"
-           disabled={startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending}
-           onPress={calendar.data?.connected ? disconnectGoogleCalendar : linkGoogleCalendar}
+            disabled={startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending}
+            onPress={linkGoogleCalendar}
            style={[local.accountButton, { backgroundColor: colors.secondary, opacity: startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending ? 0.65 : 1 }]}
          >
-           <Feather name={calendar.data?.connected ? 'link-2' : 'user-plus'} size={14} color={colors.foreground} />
+            <Feather name={calendar.data?.connected ? 'repeat' : 'user-plus'} size={14} color={colors.foreground} />
            <Text style={[local.accountButtonText, { color: colors.foreground }]}>
-             {startCalendarOAuth.isPending ? 'Connecting…' : disconnectCalendarOAuth.isPending ? 'Disconnecting…' : calendar.data?.connected ? 'Disconnect' : 'Link Account'}
+              {startCalendarOAuth.isPending ? 'Connecting…' : disconnectCalendarOAuth.isPending ? 'Disconnecting…' : calendar.data?.connected ? 'Switch account' : 'Link Account'}
            </Text>
          </Pressable>
       </View>
+       {calendar.data?.connected && (
+         <Pressable
+           accessibilityRole="button"
+           disabled={startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending}
+           onPress={disconnectGoogleCalendar}
+           style={local.disconnectLink}
+         >
+           <Text style={[local.disconnectText, { color: colors.mutedForeground }]}>Disconnect this account</Text>
+         </Pressable>
+       )}
     </View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>
      <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
@@ -251,6 +280,8 @@ const local = StyleSheet.create({
   notice: { gap: 12, padding: 15, borderRadius: 18, marginBottom: 12 },
   accountRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   accountActions: { flexDirection: 'row', gap: 8 },
+  disconnectLink: { alignSelf: 'flex-start', paddingTop: 2 },
+  disconnectText: { fontFamily: 'Inter_500Medium', fontSize: 11, textDecorationLine: 'underline' },
   accountButton: { minHeight: 42, flex: 1, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8 },
   accountButtonText: { fontFamily: 'Inter_700Bold', fontSize: 11 },
   noticeTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, marginBottom: 3 },
