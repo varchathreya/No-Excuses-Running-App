@@ -1,0 +1,18 @@
+I'm confused. Explain the following things:
+
+1) what does it mean to publish my project via replit? Does that mean someone can open my project and test it somehow? What can they test it on (webview, android emulator, local download, something else)? When publishing, it appears to go through a number of steps, including building and bundling. To a non software developer like me, this sounds very similar to what opencode has been doing locally for building and testing the apk. What's the difference, if there is any?
+
+2) I remember when we first made the project, the testing scope was small enough to where I could use Expo Go to test the features to see if it was working properly. However, now, one of the following features forces us to work with an APK instead in order to test it because Expo Go can't handle it (according to you):
+- the google calendar connection
+- the alarm setting feature
+
+If this is the case, compare and contrast testing via expo go, testing via local apk install, and if there is some other method via the published replit app or something (I'm not sure how this works, I'm just asking)
+
+3) If the replit published app version is testable, is that where the Clerk production instance is relevantl, and until then we are sticking to the Clerk test instance?
+
+4) The main issue, as you must know, that we're currently dealing with, is the google account linking functionality via the "Link Account" button on the Schedule page of the app. Confirm which of the following factors, if any, are relevant and or critical to ensuring that all our isseus with the Link Account button can be fixed:
+- whether use the proper domain
+- whether we test via the replit published app, if that's possible or the opencode-built apk
+- whether we use the clerk test or production instance
+
+5) I just relearned how Git and Github work and I'm worried that my local project, the github repo, and whatever's on the current replit workspace are out of sync. How can I check this?
