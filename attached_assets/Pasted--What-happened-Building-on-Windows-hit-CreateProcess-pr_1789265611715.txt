@@ -1,0 +1,31 @@
+## What happened
+
+Building on Windows hit `CreateProcess("...\prefab_command.bat", error=2)` on every native module (CMake/prefab step for the Moto's `armeabi-v7a` ABI). Misleadingly named `error=2` — the real cause was "filename or extension too long".
+
+**Root cause:** pnpm's default *isolated* layout stores packages in deep nested paths like `node_modules\.pnpm\react-native-worklets@0.10.1_@babel+core@…\node_modules\…`. AGP writes a temp `prefab_command.bat` in that tree, and its path was **~287 chars > the 260-char Windows executable-path limit**. OS long-paths (`LongPathsEnabled`) were already on, but Java/Gradle's process-creation path can't use the extended `\\?\` prefix for the *executable*, so launching the bat always failed. Verified directly: a short-path copy of the same bat ran fine.
+
+## The eventual optimal fix
+
+Switch pnpm to the **hoisted layout** — one line in `node_modules/.npmrc` equivalent (repo `.npmrc`):
+
+```
+node-linker=hoisted
+```
+
+- Flattens `node_modules` so top-level packages are real, short directories; the failing path dropped 287 → **147 chars**.
+- Reinstalled with `pnpm install --frozen-lockfile` (lockfile unchanged, no security-toolchain churn).
+- One follow-up snag: stale `android\build\generated\autolinking\autolinking.json` + `.gradle` still referenced the old `.pnpm` paths. Cleared with `gradlew --stop` + deleting `android\.gradle` and `android\build` (both generated/gitignored).
+- Result: **BUILD SUCCESSFUL**, native compile clean, APK produced, installed, dev-client loaded JS from Metro, app running on-device.
+
+## How to keep future APK installs pain-free
+
+1. **Never lose `node-linker=hoisted`** in `.npmrc`. If `node_modules` is ever wiped, reinstall with `pnpm install --frozen-lockfile` so the hoisted layout is preserved.
+2. **After any dependency-layout change**, clear stale native state once: `gradlew.bat --stop`, delete `android\.gradle` and `android\build`. They regenerate automatically.
+3. **Build the same way each time:**
+   - Repo script: `pnpm --filter @workspace/no-excuses exec expo run:android --device Moto_G__5__Plus`, or equivalently `gradlew.bat app:assembleDebug -PreactNativeArchitectures=armeabi-v7a` (keeps the build fast and aimed at the Moto).
+   - Incremental rebuilds are ~30s; a full native rebuild after clean is ~6 min.
+4. **Install with `adb install -r`** — update install, preserves app data (never uninstall/clear data without approval).
+5. **Runtime wiring (dev build):** refresh `adb -s ZY224LNJKD reverse tcp:8081 tcp:8081`; on first launch, dismiss the Play Protect "unknown app" dialog, then enter `localhost:8081` in the dev launcher and submit (IME-enter worked best; a stray `y` can sneak into the URL field — clear before submitting). Bundle loads from Metro; `packager-status:running` = alive.
+6. **Watch for** the `Clerk: development keys` warning (harmless dev-mode notice) and the cosmetic C/C++ "cannot be safely placed under this directory" codegen warning (harmless under hoisted layout).
+
+Want me to persist this playbook into the repo's memory doc (`.agents/memory/android-delivery.md`) so future sessions don't rediscover it?
