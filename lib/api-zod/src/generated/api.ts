@@ -18,6 +18,17 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * Preflight check used before sensitive operations. Returns the
+ * authenticated flag only when the Clerk bearer token was accepted.
+ * Never returns the token, its claims, or the raw Authorization header.
+ * @summary Check authenticated session
+ */
+export const GetAuthSessionResponse = zod.object({
+  "authenticated": zod.boolean()
+})
+
+
+/**
  * @summary Preview connected calendar events
  */
 export const getCalendarPreviewQueryDaysDefault = 7;

@@ -1,27 +1,21 @@
 import { setAuthTokenGetter } from '@workspace/api-client-react';
+import type { AuthHeaders } from '@/lib/auth-flow';
+import { buildAuthorization } from '@/lib/auth-flow';
 
 type TokenGetter = () => Promise<string | null> | string | null;
 
 /**
- * Make one protected API operation wait for a usable Clerk session token.
+ * Resolve a fresh, request-scoped Authorization header for one API operation.
  *
  * The mobile app can navigate immediately after Clerk activates a session.
- * Pinning the freshly resolved token for this request avoids a race with the
- * root layout's global token getter during that handoff.
+ * Calling `getToken()` here yields a token for THIS request rather than
+ * depending on a mutable global auth-token getter for the critical Calendar
+ * flow.
  */
-export async function withFreshAuthToken<T>(
+export async function getAuthorization(
   getToken: TokenGetter,
-  operation: () => Promise<T>,
-) {
+): Promise<AuthHeaders | null> {
   const token = await getToken();
-  if (!token) {
-    throw new Error('Your No Excuses session is not ready. Please sign in again.');
-  }
-
-  setAuthTokenGetter(() => token);
-  try {
-    return await operation();
-  } finally {
-    setAuthTokenGetter(getToken);
-  }
+  if (!token) return null;
+  return buildAuthorization(token);
 }

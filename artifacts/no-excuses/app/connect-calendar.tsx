@@ -4,10 +4,11 @@ import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
-import { useStartCalendarOAuth } from '@workspace/api-client-react';
+import { getAuthSession, startCalendarOAuth } from '@workspace/api-client-react';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 import { useColors } from '@/hooks/useColors';
-import { withFreshAuthToken } from '@/lib/api-auth';
+import { getAuthorization } from '@/lib/api-auth';
+import { linkCalendar } from '@/lib/auth-flow';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -15,35 +16,68 @@ export default function ConnectCalendar() {
   const colors = useColors();
   const router = useRouter();
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const startCalendarOAuth = useStartCalendarOAuth();
   const started = useRef(false);
+  const [linking, setLinking] = useState(false);
   const [error, setError] = useState('');
 
   const begin = useCallback(async () => {
     if (started.current) return;
     started.current = true;
+    setLinking(true);
     setError('');
     try {
-      const authorization = await withFreshAuthToken(getToken, () =>
-        startCalendarOAuth.mutateAsync(),
-      );
-      const result = await WebBrowser.openAuthSessionAsync(
-        authorization.authorizationUrl,
-        getCalendarOAuthRedirectUrl(),
-      );
-      if (result.type === 'success' && !result.url.includes('status=error')) {
-        router.replace('/(tabs)/schedule');
-        return;
-      }
-      if (result.type !== 'cancel' && result.type !== 'dismiss') {
-        throw new Error('Google Calendar permission was not completed.');
+      const outcome = await linkCalendar({
+        isLoaded,
+        isSignedIn: !!isSignedIn,
+        getAuthorization: () => getAuthorization(getToken),
+        preflight: (authorization) =>
+          getAuthSession({ headers: authorization }).then(() => undefined),
+        startOAuth: (authorization) =>
+          startCalendarOAuth({ headers: authorization }),
+        openBrowser: (authorizationUrl, redirectUrl) =>
+          WebBrowser.openAuthSessionAsync(authorizationUrl, redirectUrl),
+        redirectUrl: getCalendarOAuthRedirectUrl,
+      });
+      switch (outcome.status) {
+        case 'env-mismatch':
+          setError('This build of No Excuses and the server are using different Clerk environments. Rebuild the APK with the Clerk key that matches the published API, then sign in and try again.');
+          started.current = false;
+          setLinking(false);
+          return;
+        case 'signed-out':
+        case 'no-session':
+        case 'sign-in-required':
+          router.replace('/sign-in');
+          return;
+        case 'unexpected':
+          setError(outcome.message);
+          started.current = false;
+          setLinking(false);
+          return;
+        case 'callback-error':
+          setError('Google Calendar permission was not completed.');
+          started.current = false;
+          setLinking(false);
+          return;
+        case 'cancelled':
+          started.current = false;
+          setLinking(false);
+          return;
+        case 'connected':
+          router.replace('/(tabs)/schedule');
+          return;
+        case 'not-ready':
+          started.current = false;
+          setLinking(false);
+          return;
       }
     } catch (cause) {
       void WebBrowser.dismissBrowser();
       setError(cause instanceof Error ? cause.message : 'Google Calendar could not be connected.');
       started.current = false;
+      setLinking(false);
     }
-  }, [getToken, router, startCalendarOAuth]);
+  }, [getToken, isLoaded, isSignedIn, router]);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) void begin();
@@ -62,12 +96,12 @@ export default function ConnectCalendar() {
       <Text style={[local.body, { color: colors.mutedForeground }]}>
         Choose the Google Calendar account No Excuses should read for booked workout times. It only requests read-only access.
       </Text>
-      {startCalendarOAuth.isPending && !error ? (
+      {linking && !error ? (
         <View style={local.loading}><ActivityIndicator color={colors.primary} /><Text style={[local.loadingText, { color: colors.mutedForeground }]}>Opening Google Calendar…</Text></View>
       ) : (
         <>
           {!!error && <Text style={[local.error, { color: colors.destructive }]}>{error}</Text>}
-          <Pressable accessibilityRole="button" disabled={startCalendarOAuth.isPending} onPress={() => { started.current = false; void begin(); }} style={[local.button, { backgroundColor: colors.foreground, opacity: startCalendarOAuth.isPending ? 0.7 : 1 }]}>
+          <Pressable accessibilityRole="button" disabled={linking} onPress={() => { started.current = false; void begin(); }} style={[local.button, { backgroundColor: colors.foreground, opacity: linking ? 0.7 : 1 }]}>
             <Feather name="refresh-cw" size={18} color={colors.background} />
             <Text style={[local.buttonText, { color: colors.background }]}>Try connecting again</Text>
           </Pressable>

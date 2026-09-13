@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Session authentication operations
   - name: calendar
     description: Connected Google Calendar operations
   - name: quotes
@@ -28,6 +30,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [auth]
+      summary: Check authenticated session
+      description: |
+        Preflight check used before sensitive operations. Returns the
+        authenticated flag only when the Clerk bearer token was accepted.
+        Never returns the token, its claims, or the raw Authorization header.
+      responses:
+        "200":
+          description: Clerk session accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /calendar/preview:
     get:
       operationId: getCalendarPreview
@@ -64,7 +84,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CalendarOAuthStart"
         "401":
-          description: Sign in required
+          $ref: "#/components/responses/Unauthorized"
   /calendar/oauth/callback:
     get:
       operationId: completeCalendarOAuth
@@ -107,7 +127,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CalendarOAuthStatus"
         "401":
-          description: Sign in required
+          $ref: "#/components/responses/Unauthorized"
   /calendar/oauth/connection:
     delete:
       operationId: disconnectCalendarOAuth
@@ -117,7 +137,7 @@ paths:
         "204":
           description: Calendar disconnected
         "401":
-          description: Sign in required
+          $ref: "#/components/responses/Unauthorized"
   /quotes/daily:
     get:
       operationId: getDailyQuote
@@ -146,6 +166,25 @@ components:
           type: string
       required:
         - status
+    AuthSession:
+      type: object
+      properties:
+        authenticated:
+          type: boolean
+      required:
+        - authenticated
+    AuthError:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTH_REQUIRED
+            - AUTH_TOKEN_REJECTED
+        message:
+          type: string
+      required:
+        - code
     CalendarEvent:
       type: object
       properties:
@@ -182,4 +221,11 @@ components:
         quote: { type: string }
         index: { type: number }
       required: [quote, index]
+  responses:
+    Unauthorized:
+      description: Authentication required or rejected
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AuthError"
 

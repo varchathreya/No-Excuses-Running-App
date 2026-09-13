@@ -9,6 +9,23 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface AuthSession {
+  authenticated: boolean;
+}
+
+export type AuthErrorCode = typeof AuthErrorCode[keyof typeof AuthErrorCode];
+
+
+export const AuthErrorCode = {
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
+  AUTH_TOKEN_REJECTED: 'AUTH_TOKEN_REJECTED',
+} as const;
+
+export interface AuthError {
+  code: AuthErrorCode;
+  message?: string;
+}
+
 export interface CalendarEvent {
   id: string;
   summary: string;
@@ -36,6 +53,11 @@ export interface DailyQuote {
   quote: string;
   index: number;
 }
+
+/**
+ * Authentication required or rejected
+ */
+export type UnauthorizedResponse = AuthError;
 
 export type GetCalendarPreviewParams = {
 /**

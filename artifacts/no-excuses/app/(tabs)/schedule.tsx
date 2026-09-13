@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  useDisconnectCalendarOAuth,
+  disconnectCalendarOAuth,
+  getCalendarPreview,
+  getAuthSession,
+  startCalendarOAuth,
   useGetCalendarPreview,
-  useStartCalendarOAuth,
 } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
 import { isWorkoutAvailableToday, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
@@ -14,8 +17,11 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 import { BrandedModal } from '@/components/BrandedModal';
-import { withFreshAuthToken } from '@/lib/api-auth';
+import { getAuthorization } from '@/lib/api-auth';
+import { getAuthErrorCode, linkCalendar, runAuthorized } from '@/lib/auth-flow';
 import { useAuth } from '@clerk/expo';
+
+const CALENDAR_PREVIEW_KEY = ['/api/calendar/preview', { days: 42 }] as const;
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -117,22 +123,26 @@ function WorkoutRow({ item, booked, calendarStart, onAlarmRequested, onStartRequ
 export default function Schedule() {
   const colors = useColors();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { workouts, setAlarmChecked } = useApp();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const [week, setWeek] = useState(1);
   const [pendingStart, setPendingStart] = useState<Workout | null>(null);
   const [pendingAlarmConfirmation, setPendingAlarmConfirmation] = useState<Workout | null>(null);
+  const [linkingCalendar, setLinkingCalendar] = useState(false);
+  const [linkingCalendarError, setLinkingCalendarError] = useState<string | null>(null);
   const calendar = useGetCalendarPreview(
     { days: 42 },
     {
       query: {
-        queryKey: ['/api/calendar/preview', { days: 42 }],
+        queryKey: [...CALENDAR_PREVIEW_KEY],
         enabled: authLoaded && !!isSignedIn,
+        retry: false,
       },
     },
   );
-  const startCalendarOAuth = useStartCalendarOAuth();
-  const disconnectCalendarOAuth = useDisconnectCalendarOAuth();
+  const authMismatch = getAuthErrorCode(calendar.error) === 'AUTH_TOKEN_REJECTED';
+  const authExpired = getAuthErrorCode(calendar.error) === 'AUTH_REQUIRED';
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
@@ -143,31 +153,68 @@ export default function Schedule() {
     }
     router.push(item.type === 'rehab' ? `/rehab?workoutId=${item.id}` : `/run?workoutId=${item.id}`);
   };
-  const linkGoogleCalendar = async () => {
-    try {
-      if (!authLoaded || !isSignedIn) {
+  const presentLinkCalendarOutcome = (outcome: Awaited<ReturnType<typeof linkCalendar>>) => {
+    switch (outcome.status) {
+      case 'not-ready':
+        return;
+      case 'signed-out':
+      case 'no-session':
+      case 'sign-in-required':
         router.replace('/sign-in');
         return;
-      }
-      const authorization = await withFreshAuthToken(getToken, () =>
-        startCalendarOAuth.mutateAsync(),
-      );
-      const result = await WebBrowser.openAuthSessionAsync(
-        authorization.authorizationUrl,
-        getCalendarOAuthRedirectUrl(),
-      );
-      if (result.type !== 'success') return;
-      if (result.url.includes('status=error')) {
+      case 'env-mismatch':
+        Alert.alert(
+          'Calendar connection failed',
+          'This build of No Excuses and the server are using different Clerk environments. Rebuild the APK with the Clerk key that matches the published API, then sign in and try again.',
+        );
+        return;
+      case 'unexpected':
+        Alert.alert('Calendar connection failed', outcome.message);
+        return;
+      case 'cancelled':
+        return;
+      case 'callback-error':
         Alert.alert('Calendar connection failed', 'Google Calendar permission was not completed.');
         return;
+      case 'connected':
+        return;
+    }
+  };
+  const linkGoogleCalendar = async () => {
+    if (!authLoaded || !isSignedIn) {
+      router.replace('/sign-in');
+      return;
+    }
+    setLinkingCalendar(true);
+    setLinkingCalendarError(null);
+    try {
+      const outcome = await linkCalendar({
+        isLoaded: authLoaded,
+        isSignedIn: !!isSignedIn,
+        getAuthorization: () => getAuthorization(getToken),
+        preflight: (authorization) =>
+          getAuthSession({ headers: authorization }).then(() => undefined),
+        startOAuth: (authorization) =>
+          startCalendarOAuth({ headers: authorization }),
+        openBrowser: (authorizationUrl, redirectUrl) =>
+          WebBrowser.openAuthSessionAsync(authorizationUrl, redirectUrl),
+        redirectUrl: getCalendarOAuthRedirectUrl,
+        onConnected: async () => {
+          const authorization = await getAuthorization(getToken);
+          if (!authorization) return;
+          const freshPreview = await getCalendarPreview({ days: 42 }, { headers: authorization });
+          queryClient.setQueryData([...CALENDAR_PREVIEW_KEY], freshPreview);
+        },
+      });
+      presentLinkCalendarOutcome(outcome);
+      if (outcome.status !== 'connected') {
+        setLinkingCalendarError('Connect again to retry.');
       }
-      await calendar.refetch();
     } catch (cause) {
       void WebBrowser.dismissBrowser();
-      Alert.alert(
-        'Calendar connection failed',
-        cause instanceof Error ? cause.message : 'Google Calendar could not be connected.',
-      );
+      setLinkingCalendarError(cause instanceof Error ? cause.message : 'Google Calendar could not be connected.');
+    } finally {
+      setLinkingCalendar(false);
     }
   };
   const disconnectGoogleCalendar = () => {
@@ -181,12 +228,20 @@ export default function Schedule() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await withFreshAuthToken(getToken, () =>
-                disconnectCalendarOAuth.mutateAsync(),
+              await runAuthorized(
+                () => getAuthorization(getToken),
+                (authorization) => disconnectCalendarOAuth({ headers: authorization }),
               );
               await calendar.refetch();
-            } catch {
-              Alert.alert('Disconnect failed', 'Google Calendar could not be disconnected. Try again.');
+            } catch (cause) {
+              if (getAuthErrorCode(cause) === 'AUTH_TOKEN_REJECTED') {
+                Alert.alert(
+                  'Disconnect failed',
+                  'This build and the server are using different Clerk environments. Rebuild the APK with the matching Clerk key first.',
+                );
+              } else {
+                Alert.alert('Disconnect failed', 'Google Calendar could not be disconnected. Try again.');
+              }
             }
           },
         },
@@ -217,26 +272,35 @@ export default function Schedule() {
   }, [calendar.refetch]);
   return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
     <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
-    <View style={[local.notice, { backgroundColor: colors.card }]}>
-       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
+<View style={[local.notice, { backgroundColor: colors.card }]}>
+       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{authMismatch ? 'Calendar preview is unavailable' : calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
+      {authMismatch && (
+        <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>This build of No Excuses and the server are using different Clerk environments. Rebuild the APK with the matching Clerk key, then sign in again.</Text>
+      )}
+      {authExpired && !authMismatch && (
+        <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>Your sign-in expired. Sign in again to check your calendar.</Text>
+      )}
       <View style={local.accountActions}>
         <Pressable accessibilityRole="button" onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
          <Pressable
            accessibilityRole="button"
-            disabled={startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending}
+            disabled={linkingCalendar}
             onPress={linkGoogleCalendar}
-           style={[local.accountButton, { backgroundColor: colors.secondary, opacity: startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending ? 0.65 : 1 }]}
+           style={[local.accountButton, { backgroundColor: colors.secondary, opacity: linkingCalendar ? 0.65 : 1 }]}
          >
             <Feather name={calendar.data?.connected ? 'repeat' : 'user-plus'} size={14} color={colors.foreground} />
            <Text style={[local.accountButtonText, { color: colors.foreground }]}>
-              {startCalendarOAuth.isPending ? 'Connecting…' : disconnectCalendarOAuth.isPending ? 'Disconnecting…' : calendar.data?.connected ? 'Switch account' : 'Link Account'}
+              {linkingCalendar ? 'Connecting…' : calendar.data?.connected ? 'Switch account' : 'Link Account'}
            </Text>
          </Pressable>
       </View>
+      {!!linkingCalendarError && (
+        <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>{linkingCalendarError}</Text>
+      )}
        {calendar.data?.connected && (
          <Pressable
            accessibilityRole="button"
-           disabled={startCalendarOAuth.isPending || disconnectCalendarOAuth.isPending}
+           disabled={linkingCalendar}
            onPress={disconnectGoogleCalendar}
            style={local.disconnectLink}
          >

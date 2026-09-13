@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuthSession,
   CalendarOAuthStart,
   CalendarOAuthStatus,
   CalendarPreview,
@@ -27,7 +28,8 @@ import type {
   DailyQuote,
   GetCalendarPreviewParams,
   GetDailyQuoteParams,
-  HealthStatus
+  HealthStatus,
+  UnauthorizedResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -123,6 +125,86 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAuthSessionUrl = () => {
+
+
+
+
+  return `/api/auth/session`
+}
+
+/**
+ * Preflight check used before sensitive operations. Returns the
+ * authenticated flag only when the Clerk bearer token was accepted.
+ * Never returns the token, its claims, or the raw Authorization header.
+ * @summary Check authenticated session
+ */
+export const getAuthSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<AuthSession> => {
+
+  return customFetch<AuthSession>(getGetAuthSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAuthSessionQueryKey = () => {
+    return [
+    `/api/auth/session`
+    ] as const;
+    }
+
+
+export const getGetAuthSessionQueryOptions = <TData = Awaited<ReturnType<typeof getAuthSession>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuthSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAuthSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAuthSession>>> = ({ signal }) => getAuthSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAuthSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAuthSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getAuthSession>>>
+export type GetAuthSessionQueryError = ErrorType<UnauthorizedResponse>
+
+
+/**
+ * @summary Check authenticated session
+ */
+
+export function useGetAuthSession<TData = Awaited<ReturnType<typeof getAuthSession>>, TError = ErrorType<UnauthorizedResponse>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAuthSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAuthSessionQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -245,7 +327,7 @@ export const startCalendarOAuth = async ( options?: Parameters<typeof customFetc
 
 
 
-export const getStartCalendarOAuthMutationOptions = <TError = ErrorType<void>,
+export const getStartCalendarOAuthMutationOptions = <TError = ErrorType<UnauthorizedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext> => {
 
@@ -274,12 +356,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type StartCalendarOAuthMutationResult = NonNullable<Awaited<ReturnType<typeof startCalendarOAuth>>>
 
-    export type StartCalendarOAuthMutationError = ErrorType<void>
+    export type StartCalendarOAuthMutationError = ErrorType<UnauthorizedResponse>
 
     /**
  * @summary Start Google Calendar authorization
  */
-export const useStartCalendarOAuth = <TError = ErrorType<void>,
+export const useStartCalendarOAuth = <TError = ErrorType<UnauthorizedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof startCalendarOAuth>>,
@@ -407,7 +489,7 @@ export const getGetCalendarOAuthStatusQueryKey = () => {
     }
 
 
-export const getGetCalendarOAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetCalendarOAuthStatusQueryOptions = <TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -426,14 +508,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetCalendarOAuthStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getCalendarOAuthStatus>>>
-export type GetCalendarOAuthStatusQueryError = ErrorType<void>
+export type GetCalendarOAuthStatusQueryError = ErrorType<UnauthorizedResponse>
 
 
 /**
  * @summary Get Google Calendar connection status
  */
 
-export function useGetCalendarOAuthStatus<TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<void>>(
+export function useGetCalendarOAuthStatus<TData = Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError = ErrorType<UnauthorizedResponse>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalendarOAuthStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -477,7 +559,7 @@ export const disconnectCalendarOAuth = async ( options?: Parameters<typeof custo
 
 
 
-export const getDisconnectCalendarOAuthMutationOptions = <TError = ErrorType<void>,
+export const getDisconnectCalendarOAuthMutationOptions = <TError = ErrorType<UnauthorizedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext> => {
 
@@ -506,12 +588,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type DisconnectCalendarOAuthMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectCalendarOAuth>>>
 
-    export type DisconnectCalendarOAuthMutationError = ErrorType<void>
+    export type DisconnectCalendarOAuthMutationError = ErrorType<UnauthorizedResponse>
 
     /**
  * @summary Disconnect Google Calendar
  */
-export const useDisconnectCalendarOAuth = <TError = ErrorType<void>,
+export const useDisconnectCalendarOAuth = <TError = ErrorType<UnauthorizedResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectCalendarOAuth>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof disconnectCalendarOAuth>>,

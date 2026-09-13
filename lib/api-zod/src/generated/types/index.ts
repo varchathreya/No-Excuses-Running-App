@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './authError';
+export * from './authErrorCode';
+export * from './authSession';
 export * from './calendarEvent';
 export * from './calendarOAuthStart';
 export * from './calendarOAuthStatus';
@@ -15,3 +18,4 @@ export * from './dailyQuote';
 export * from './getCalendarPreviewParams';
 export * from './getDailyQuoteParams';
 export * from './healthStatus';
+export * from './unauthorizedResponse';

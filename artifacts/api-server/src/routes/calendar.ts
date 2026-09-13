@@ -1,5 +1,4 @@
 import { Router, type IRouter, type Request } from "express";
-import { getAuth } from "@clerk/express";
 import {
   CompleteCalendarOAuthQueryParams,
   GetCalendarOAuthStatusResponse,
@@ -15,6 +14,7 @@ import {
   hasCalendarConnection,
   verifyCalendarOAuthState,
 } from "../lib/googleCalendarOAuth";
+import { getAuthState, sendUnauthorized } from "../lib/auth";
 
 const calendarRouter: IRouter = Router();
 const CALENDAR_APP_REDIRECT = "no-excuses://calendar-connected";
@@ -53,11 +53,12 @@ function calendarAppRedirect(status: "connected" | "error") {
 }
 
 calendarRouter.post("/calendar/oauth/start", async (req, res): Promise<void> => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ message: "Sign in required." });
+  const state = getAuthState(req);
+  if (state.status !== "authenticated") {
+    sendUnauthorized(res, state);
     return;
   }
+  const userId = state.userId;
   try {
     const redirectUri = callbackUrl(req);
     res.json(
@@ -103,14 +104,14 @@ calendarRouter.get(
 calendarRouter.get(
   "/calendar/oauth/status",
   async (req, res): Promise<void> => {
-    const { userId } = getAuth(req);
-    if (!userId) {
-      res.status(401).json({ message: "Sign in required." });
+    const state = getAuthState(req);
+    if (state.status !== "authenticated") {
+      sendUnauthorized(res, state);
       return;
     }
     res.json(
       GetCalendarOAuthStatusResponse.parse({
-        connected: await hasCalendarConnection(userId),
+        connected: await hasCalendarConnection(state.userId),
       }),
     );
   },
@@ -119,22 +120,23 @@ calendarRouter.get(
 calendarRouter.delete(
   "/calendar/oauth/connection",
   async (req, res): Promise<void> => {
-    const { userId } = getAuth(req);
-    if (!userId) {
-      res.status(401).json({ message: "Sign in required." });
+    const state = getAuthState(req);
+    if (state.status !== "authenticated") {
+      sendUnauthorized(res, state);
       return;
     }
-    await disconnectCalendar(userId);
+    await disconnectCalendar(state.userId);
     res.status(204).send();
   },
 );
 
 calendarRouter.get("/calendar/preview", async (req, res): Promise<void> => {
-  const { userId } = getAuth(req);
-  if (!userId) {
-    res.status(401).json({ message: "Sign in required." });
+  const state = getAuthState(req);
+  if (state.status !== "authenticated") {
+    sendUnauthorized(res, state);
     return;
   }
+  const userId = state.userId;
   const parsed = GetCalendarPreviewQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ message: "Invalid calendar window." });
