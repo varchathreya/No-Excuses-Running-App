@@ -5,3 +5,4 @@
 - [Calendar booking](calendar-booking.md) — workout booking uses Google Calendar’s mobile event-template URL so users choose the final date and time.
 - [Run linkage](run-linkage.md) — unscheduled activities remain in history but never complete or modify a planned workout.
 - [React Query bundling](react-query-bundling.md) — pnpm workspace Metro bundles must resolve one React Query module for generated hooks and the root provider to share context.
+- [Pnpm lockfile validation](pnpm-lockfile-validation.md) — refresh the existing lockfile with offline pnpm before frozen validation; alternate-version regeneration creates unrelated churn.
