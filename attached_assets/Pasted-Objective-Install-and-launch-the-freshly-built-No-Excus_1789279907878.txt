@@ -1,0 +1,40 @@
+Objective
+Install and launch the freshly built No Excuses development APK (com.noexcuses, dev-client) on the physical Motorola Moto G (5) Plus (serial ZY224LNJKD), connect it to Metro, and report resulting runtime state.
+Important Details
+Work only in C:\NE5; do not modify C:\NE3; do not touch Git stashes.
+Instruction conflict: host port 8081 is already held by NE3's Expo/Metro (node PID 24492, C:\NE3\...\expo\bin\cli start --dev-client). NE3 must not be killed, so NE5's Metro runs on port 8082; device localhost:8081 is mapped via adb reverse tcp:8081 tcp:8082.
+Metro launched detached: node PID 11136, node C:\NE5\artifacts\no-excuses\node_modules\expo\bin\cli start --dev-client --port 8082. Logs: C:\Users\VARCH_~1\AppData\Local\Temp\opencode\ne5-metro.out.log and ...\ne5-metro.err.log; Expo start log: C:\NE5\artifacts\no-excuses\.expo\dev\logs\start.log.
+Built APK (install): C:\NE5\artifacts\no-excuses\android\app\build\outputs\apk\debug\app-debug.apk (79,778,996 bytes, SHA256 65AB13D12E14D54C3CD510866838021117F87BC6109CBC23EC5044AF691D2BFF).
+App is a dev-client build; dev launcher (expo.modules.devlauncher.launcher.DevLauncherActivity) is the UI that appears on launch. No custom URI scheme registered in the prebuild (ERR in metro err log: "The /android project does not contain any URI schemes.").
+App package config mismatch: generated Gradle applicationId = com.noexcuses (installed target); app.json says com.noexcuses.app (separate older app on device, untouched). com.noexcuses has no dedicated AndroidManifest scheme filter; only https/solana-wallet/expo-dev-launcher/clerk schemes exist.
+The dev-launcher URL field has a known quirk: a stray y character (from the input text command) repeatedly lands in the URL. Procedure that worked: tap field, input keyevent 123 (END), input keyevent 67 (DEL), then verify field text before submitting via a fresh uiautomator dump.
+PIN-lock issue: the Moto's keyguard blocked launch at first; user chose "I'll unlock it now — continue" and unlocked. Keyguard is now clear (isStatusBarKeyguard=false).
+Do not uninstall the app or clear app data.
+Work State
+Completed
+Device confirmed: single device ZY224LNJKD, model Moto G (5) Plus (potter), Android 8.1.0 (SDK 27), root accessible, app already present (com.noexcuses, plus unrelated com.noexcuses.app).
+APK installed with adb -s ZY224LNJKD install -r ... → Success; on-device base.apk byte-identical to local APK (79,778,996 bytes / same SHA256).
+Metro (PID 11136) running on port 8082: /status → 200 packager-status:running (bytes 112 97 99 107 97 103 101 114 45 115 116 97 116 117 115 58 114 117 110 110 105 110 103).
+adb reverse set: tcp:8081→tcp:8082 and tcp:8082→tcp:8082.
+Dev launcher confirmed working: am start -n com.noexcuses/.MainActivity lands on DevLauncherActivity; verified the URL field sets to localhost:8081 and Connect button exists (bounds, e.g. [456,1143][625,1194] or [456,1213][625,1264] depending on keyboard state).
+Evidence the device reached NE5 Metro: netstat showed 127.0.0.1:49454 → 127.0.0.1:8082 in TIME_WAIT after tapping Connect.
+Baffling/device-side issue: after Connect, com.noexcuses process died (ActivityManager: Killing 22004:com.noexcuses/u0a135 (adj 900): remove task at 22:57:10; no FATAL exception/JVM crash; process absent from ps). The bundle/Metro log shows no BUNDLE/bundle-build request line yet, only the initial manifest fetch.
+The 21:02 dex2oat SIGABRT crashes in the crash buffer are old and unrelated (predate our installs).
+Google app also got foregrounded accidentally during tapping (home-screen search widget), so subsequent taps should re-check which app is foreground first.
+Active
+com.noexcuses currently not running.
+Metro still listening on 8082. Manifest fetch works (HTTP 200, 2415 bytes); no JS bundle request seen yet.
+Just before this summary, a fresh relaunch was issued: adb shell am force-stop com.noexcuses, then adb shell am start -n com.noexcuses/.MainActivity; the launcher is up again (URL field empty, Connect visible at [456,1213][625,1264]), logcat cleared. The likely next step (per prior UI flow) is to enter localhost:8081, hit Connect, and let the first bundle build complete (may take a while with React Compiler).
+Blocked
+(none, though the process-died-after-manifest issue is still being diagnosed; the first JS bundle build had not completed when the previous process was killed/removed.)
+Next Move
+Set the URL field to localhost:8081 (tap field, keyevent 123, keyevent 67, verify via dump), tap Connect, and then watch Metro (ne5-metro.out.log) for the first BUNDLE request from com.noexcuses.
+When the bundle build starts, wait for it to complete and confirm the launcher switches into the app; if the process dies again, grab logcat -b crash/logcat -d right after the Killing line and note whether remove task/bundle timeout is the cause.
+If the app loads, report the install + launch result and any runtime errors; verify packager-status:running still.
+Relevant Files
+C:\NE5\artifacts\no-excuses\android\app\build\outputs\apk\debug\app-debug.apk: installed APK.
+C:\NE5\artifacts\no-excuses\node_modules\expo\bin\cli: Metro/expo CLI being run.
+C:\Users\VARCH_~1\AppData\Local\Temp\opencode\ne5-metro.out.log / ne5-metro.err.log: Metro logs (key for bundle/crash signals).
+C:\NE5\artifacts\no-excuses\.expo\dev\logs\start.log: Expo start/Metro init JSONL log.
+C:\NE5\artifacts\no-excuses\android\app\src\main\AndroidManifest.xml and android\app\build\intermediates\merged_manifests\debug\processDebugManifest\AndroidManifest.xml: manifest state (no custom scheme; DevLauncherActivity present).
+Metro is not compiling (0% CPU) — the open connection is hung, not building. Let me dig into what the launcher is actually doing on the device side and confirm the reverse tunnel is still intact.
