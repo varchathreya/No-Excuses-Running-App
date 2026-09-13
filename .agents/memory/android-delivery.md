@@ -14,3 +14,9 @@ For Windows development-APK delivery, an explicit Expo device selection can succ
 **Why:** The device picker output is independent of Gradle's assemble step. Repeated cache errors can obscure that no new APK was installed, so device targeting and build/install verification must be reported separately.
 
 **How to apply:** Require a build-success artifact path and an `adb -s <physical-serial> install` result before calling the APK installed. Do not fall back to an emulator or ask the user to run the final Expo command manually.
+
+For Windows native builds, keep the repository `.npmrc` setting `node-linker=hoisted`, reinstall with `pnpm install --frozen-lockfile` after dependency-layout changes, and clear generated `android\.gradle` and `android\build` before rebuilding. Use the physical Moto ABI target and `adb install -r`.
+
+**Why:** pnpm's isolated layout can put React Native prefab executables beyond Windows' process-creation path limit even when OS long paths are enabled; hoisting shortens the generated native paths without changing app behavior.
+
+**How to apply:** Treat `CreateProcess(...prefab_command.bat, error=2)` with an overlong path as a dependency-layout/build-cache problem, not an application-design problem. Keep the cleanup and hoisted-layout steps in every Windows APK build prompt.

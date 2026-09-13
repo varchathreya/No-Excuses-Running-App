@@ -27,7 +27,15 @@ function getApiBaseUrl() {
   if (!configured) {
     throw new Error('EXPO_PUBLIC_API_URL or EXPO_PUBLIC_DOMAIN is required.');
   }
-  return /^https?:\/\//i.test(configured) ? configured.replace(/\/+$/, '') : `https://${configured.replace(/\/+$/, '')}`;
+  const withProtocol = /^https?:\/\//i.test(configured)
+    ? configured
+    : `https://${configured}`;
+  const parsed = new URL(withProtocol);
+  const path = parsed.pathname.replace(/\/+$/, '');
+  if (path === '/api') parsed.pathname = '';
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString().replace(/\/+$/, '');
 }
 
 setBaseUrl(getApiBaseUrl());
