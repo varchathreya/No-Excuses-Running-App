@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { AppState as RNAppState } from 'react-native';
+import { AppState as RNAppState, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 export type Workout = {
@@ -96,6 +96,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsOnline(false);
       return;
     }
+    if (Platform.OS === 'web') {
+      setIsOnline(typeof navigator === 'undefined' || navigator.onLine !== false);
+      return;
+    }
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
@@ -116,9 +120,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const subscription = RNAppState.addEventListener('change', (state) => {
       if (state === 'active') void checkConnectivity();
     });
+    const webOnline = Platform.OS === 'web' && typeof window !== 'undefined'
+      ? () => setIsOnline(true)
+      : undefined;
+    const webOffline = Platform.OS === 'web' && typeof window !== 'undefined'
+      ? () => setIsOnline(false)
+      : undefined;
+    if (webOnline && webOffline) {
+      window.addEventListener('online', webOnline);
+      window.addEventListener('offline', webOffline);
+    }
     return () => {
       clearInterval(interval);
       subscription.remove();
+      if (webOnline && webOffline) {
+        window.removeEventListener('online', webOnline);
+        window.removeEventListener('offline', webOffline);
+      }
     };
   }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
