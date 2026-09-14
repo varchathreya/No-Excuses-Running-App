@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
+import { useApp } from '@/context/AppContext';
 
 export function Screen({ children, scroll = true }: { children: React.ReactNode; scroll?: boolean }) {
   const colors = useColors(); const insets = useSafeAreaInsets();
@@ -11,7 +12,10 @@ export function Screen({ children, scroll = true }: { children: React.ReactNode;
 }
 export function Header({ eyebrow, title, action }: { eyebrow: string; title: string; action?: React.ReactNode }) {
   const colors = useColors();
-  return <View style={styles.header}><View><Text style={[styles.eyebrow, { color: colors.primary }]}>{eyebrow}</Text><Text style={[styles.title, { color: colors.foreground }]}>{title}</Text></View>{action}</View>;
+  const { offlineMode, isOnline, setOfflineMode } = useApp();
+  const statusColor = offlineMode ? colors.secondary : isOnline ? colors.accent : colors.destructive;
+  const statusLabel = offlineMode ? 'OFFLINE' : isOnline ? 'ONLINE' : 'NO WIFI';
+  return <View style={styles.header}><View><Text style={[styles.eyebrow, { color: colors.primary }]}>{eyebrow}</Text><Text style={[styles.title, { color: colors.foreground }]}>{title}</Text></View><View style={styles.headerActions}><Pressable accessibilityRole="button" accessibilityLabel={offlineMode ? 'Turn off offline mode' : 'Turn on offline mode'} accessibilityHint="Toggle network-required features" onPress={() => setOfflineMode(!offlineMode)} style={[styles.networkButton, { backgroundColor: offlineMode || !isOnline ? colors.secondary : colors.card, borderColor: offlineMode || !isOnline ? colors.border : colors.accent }]}><Feather name={offlineMode || !isOnline ? 'wifi-off' : 'wifi'} size={13} color={statusColor} /><Text style={[styles.networkText, { color: statusColor }]}>{statusLabel}</Text></Pressable>{action}</View></View>;
 }
 export function Button({ label, onPress, secondary = false, icon, disabled = false }: { label: string; onPress: () => void; secondary?: boolean; icon?: keyof typeof Feather.glyphMap; disabled?: boolean }) {
   const colors = useColors();
@@ -19,4 +23,4 @@ export function Button({ label, onPress, secondary = false, icon, disabled = fal
 }
 export function Pill({ children, color }: { children: React.ReactNode; color?: string }) { const colors = useColors(); return <View style={[styles.pill, { backgroundColor: color ?? colors.secondary }]}><Text style={[styles.pillText, { color: color ? colors.background : colors.mutedForeground }]}>{children}</Text></View>; }
 export function SectionTitle({ children }: { children: React.ReactNode }) { const colors = useColors(); return <Text style={[styles.section, { color: colors.foreground }]}>{children}</Text>; }
-export const styles = StyleSheet.create({ root: { flex: 1 }, fill: { flex: 1 }, content: { paddingHorizontal: 20 }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }, eyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.5, fontSize: 11, marginBottom: 6 }, title: { fontFamily: 'Inter_700Bold', fontSize: 32, letterSpacing: -1 }, section: { fontFamily: 'Inter_700Bold', fontSize: 18, marginBottom: 12 }, button: { minHeight: 48, borderRadius: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, buttonText: { fontFamily: 'Inter_700Bold', fontSize: 14 }, pill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 30 }, pillText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.7 }, card: { borderRadius: 22, padding: 18, marginBottom: 12 }, muted: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21 } });
+export const styles = StyleSheet.create({ root: { flex: 1 }, fill: { flex: 1 }, content: { paddingHorizontal: 20 }, header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, gap: 10 }, headerActions: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 }, networkButton: { minHeight: 30, borderWidth: 1, borderRadius: 15, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }, networkText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: .5 }, eyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.5, fontSize: 11, marginBottom: 6 }, title: { fontFamily: 'Inter_700Bold', fontSize: 32, letterSpacing: -1 }, section: { fontFamily: 'Inter_700Bold', fontSize: 18, marginBottom: 12 }, button: { minHeight: 48, borderRadius: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, buttonText: { fontFamily: 'Inter_700Bold', fontSize: 14 }, pill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 30 }, pillText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.7 }, card: { borderRadius: 22, padding: 18, marginBottom: 12 }, muted: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21 } });

@@ -51,9 +51,10 @@ function AndroidRouteMap({ route, strokeColor, startColor, endColor }: { route: 
     () => createOpenStreetMapHtml(route, strokeColor, startColor, endColor),
     [strokeColor, startColor, endColor],
   );
+  const mapSource = useMemo(() => ({ html: initialHtml }), [initialHtml]);
   const updateRoute = useCallback((nextRoute: RoutePoint[]) => {
     const coordinates = nextRoute.map(({ latitude, longitude }) => [latitude, longitude]);
-    webMap.current?.injectJavaScript(`window.updateRoute(${JSON.stringify(coordinates)}); true;`);
+    webMap.current?.injectJavaScript(`if (typeof window.updateRoute === 'function') { window.updateRoute(${JSON.stringify(coordinates)}); } true;`);
   }, []);
 
   useEffect(() => {
@@ -67,7 +68,7 @@ function AndroidRouteMap({ route, strokeColor, startColor, endColor }: { route: 
         ref={webMap}
         originWhitelist={['*']}
         javaScriptEnabled
-        source={{ html: initialHtml }}
+        source={mapSource}
         onLoadEnd={() => {
           mapReady.current = true;
           updateRoute(routeRef.current);
@@ -89,22 +90,78 @@ function createOpenStreetMapHtml(route: RoutePoint[], strokeColor: string, start
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <style>
-    html, body, #map { height: 100%; width: 100%; margin: 0; background: #e9efea; }
+    html, body { height: 100%; width: 100%; margin: 0; background: #e9efea; overflow: hidden; }
+    #map { position: absolute; inset: 0; background: #e9efea; }
+    #route-fallback { position: absolute; inset: 0; z-index: 1000; pointer-events: none; background: #e9efea; }
+    #route-fallback polyline { fill: none; stroke: ${strokeColor}; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    #route-fallback circle { stroke: ${startColor}; stroke-width: 1.5; fill: ${startColor}; }
+    #route-fallback circle.end { stroke: ${endColor}; fill: ${endColor}; }
     .leaflet-control-attribution { font-size: 9px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <svg id="route-fallback" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Offline route preview">
+    <polyline id="fallback-line" points=""></polyline>
+    <circle id="fallback-start" cx="0" cy="0" r="3"></circle>
+    <circle id="fallback-end" class="end" cx="0" cy="0" r="3"></circle>
+  </svg>
   <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: true });
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    const fallback = document.getElementById('route-fallback');
+    const fallbackLine = document.getElementById('fallback-line');
+    const fallbackStart = document.getElementById('fallback-start');
+    const fallbackEnd = document.getElementById('fallback-end');
+    let currentRoute = ${routeJson};
+    let map = null;
     let line = null;
     let markers = [];
+
+    function renderFallback(route) {
+      if (!Array.isArray(route) || route.length === 0) {
+        fallbackLine.setAttribute('points', '');
+        fallbackStart.setAttribute('r', '0');
+        fallbackEnd.setAttribute('r', '0');
+        return;
+      }
+      const lats = route.map((point) => point[0]);
+      const lngs = route.map((point) => point[1]);
+      const minLat = Math.min(...lats);
+      const maxLat = Math.max(...lats);
+      const minLng = Math.min(...lngs);
+      const maxLng = Math.max(...lngs);
+      const latSpan = Math.max(maxLat - minLat, 0.00005);
+      const lngSpan = Math.max(maxLng - minLng, 0.00005);
+      const points = route.map((point) => {
+        const x = 8 + ((point[1] - minLng) / lngSpan) * 84;
+        const y = 92 - ((point[0] - minLat) / latSpan) * 84;
+        return x.toFixed(2) + ',' + y.toFixed(2);
+      }).join(' ');
+      fallbackLine.setAttribute('points', points);
+      const first = points.split(' ')[0].split(',');
+      const last = points.split(' ').slice(-1)[0].split(',');
+      fallbackStart.setAttribute('cx', first[0]);
+      fallbackStart.setAttribute('cy', first[1]);
+      fallbackStart.setAttribute('r', '3');
+      fallbackEnd.setAttribute('cx', last[0]);
+      fallbackEnd.setAttribute('cy', last[1]);
+      fallbackEnd.setAttribute('r', route.length > 1 ? '3' : '0');
+    }
+
+    function initLeaflet() {
+      if (typeof L === 'undefined') return;
+      map = L.map('map', { zoomControl: false, attributionControl: true });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      fallback.style.display = 'none';
+      updateRoute(currentRoute);
+    }
+
     function updateRoute(route) {
+      currentRoute = route;
+      renderFallback(route);
+      if (!map) return;
       if (line) {
         map.removeLayer(line);
         line = null;
@@ -122,7 +179,12 @@ function createOpenStreetMapHtml(route: RoutePoint[], strokeColor: string, start
       }
     }
     window.updateRoute = updateRoute;
-    updateRoute(${routeJson});
+    renderFallback(currentRoute);
+    const leafletScript = document.createElement('script');
+    leafletScript.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    leafletScript.onload = initLeaflet;
+    leafletScript.onerror = () => { fallback.style.display = 'block'; };
+    document.head.appendChild(leafletScript);
   </script>
 </body>
 </html>`;

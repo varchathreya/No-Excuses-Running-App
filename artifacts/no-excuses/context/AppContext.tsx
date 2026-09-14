@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState as RNAppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 export type Workout = {
@@ -18,7 +19,13 @@ export type RoutePoint = { latitude: number; longitude: number; altitude?: numbe
 export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[]; workoutId?: string };
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
-export function isWorkoutAvailableToday(day: number) { return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7); }
+export function activeWorkoutWeek(workouts: Workout[]) {
+  return workouts.find((item) => item.scheduled && !item.completed)?.week ?? 4;
+}
+export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number) {
+  return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7)
+    && (week === undefined || activeWeek === undefined || week === activeWeek);
+}
 
 const toolkit = 'Strength toolkit: A-skips, hip circles, walking lunges, single-leg deadlifts, bodyweight squats, clamshells, hip hikes, glute bridges, short-foot doming, toe yoga, calf raises, hip flexor stretch, plantar rolling, calf smashes.';
 const plan: Array<{ title: string; type: Workout['type']; duration: string; focus: string }> = [
@@ -61,6 +68,10 @@ type AppState = {
   completeWorkout: (id: string) => void;
   setAlarmChecked: (id: string, checked: boolean) => void;
   saveActivity: (activity: Activity) => void;
+  offlineMode: boolean;
+  isOnline: boolean;
+  networkAvailable: boolean;
+  setOfflineMode: (enabled: boolean) => void;
   completedCount: number;
   totalMiles: number;
 };
@@ -68,9 +79,48 @@ const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [offlineMode, setOfflineModeState] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   useEffect(() => { AsyncStorage.getItem('no-excuses-workouts').then((saved) => saved && setWorkouts(JSON.parse(saved))); AsyncStorage.getItem('no-excuses-activities').then((saved) => saved && setActivities(JSON.parse(saved))); }, []);
+  useEffect(() => {
+    AsyncStorage.getItem('no-excuses-offline-mode').then((saved) => saved && setOfflineModeState(saved === 'true'));
+  }, []);
   useEffect(() => { AsyncStorage.setItem('no-excuses-workouts', JSON.stringify(workouts)); }, [workouts]);
   useEffect(() => { AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities)); }, [activities]);
+  const setOfflineMode = useCallback((enabled: boolean) => {
+    setOfflineModeState(enabled);
+    void AsyncStorage.setItem('no-excuses-offline-mode', String(enabled));
+  }, []);
+  const checkConnectivity = useCallback(async () => {
+    if (offlineMode) {
+      setIsOnline(false);
+      return;
+    }
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(`https://clients3.google.com/generate_204?ts=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      setIsOnline(response.ok || response.status === 204);
+    } catch {
+      setIsOnline(false);
+    }
+  }, [offlineMode]);
+  useEffect(() => {
+    void checkConnectivity();
+    const interval = setInterval(() => void checkConnectivity(), 15000);
+    const subscription = RNAppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkConnectivity();
+    });
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
+  }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
     workouts, activities,
@@ -79,9 +129,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
     setAlarmChecked: (id: string, checked: boolean) => update((items) => items.map((item) => item.id === id ? { ...item, alarmSet: checked } : item)),
     saveActivity: (activity: Activity) => setActivities((items) => [activity, ...items]),
+    offlineMode,
+    isOnline,
+    networkAvailable: !offlineMode && isOnline,
+    setOfflineMode,
     completedCount: workouts.filter((item) => item.completed).length,
     totalMiles: activities.reduce((sum, activity) => sum + activity.distanceMeters / 1609.34, 0),
-  }), [workouts, activities]);
+  }), [workouts, activities, offlineMode, isOnline, setOfflineMode]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 export function useApp() { const context = useContext(AppContext); if (!context) throw new Error('useApp must be used inside AppProvider'); return context; }

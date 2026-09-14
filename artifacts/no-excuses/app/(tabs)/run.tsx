@@ -3,7 +3,7 @@ import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { Activity, isWorkoutAvailableToday, RoutePoint, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, Activity, isWorkoutAvailableToday, RoutePoint, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import NativeRouteMap from '@/components/NativeRouteMap';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -42,13 +42,13 @@ export default function Run() {
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
   const { workouts, saveActivity, activities, completeWorkout } = useApp();
   const requestedWorkout = workouts.find((item) => item.id === workoutId);
-  const wrongDay = !!requestedWorkout && !isWorkoutAvailableToday(requestedWorkout.day);
-  const activeWeek = workouts.find((item) => item.scheduled && !item.completed)?.week;
+  const activeWeek = activeWorkoutWeek(workouts);
+  const wrongDay = !!requestedWorkout && !isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek);
   const requestedWorkoutToday = requestedWorkout
     && requestedWorkout.scheduled
     && !requestedWorkout.completed
     && requestedWorkout.type !== 'rehab'
-    && isWorkoutAvailableToday(requestedWorkout.day)
+    && isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek)
     ? requestedWorkout
     : undefined;
   const todayWorkout = requestedWorkoutToday ?? workouts.find((item) =>
@@ -56,7 +56,7 @@ export default function Run() {
     && item.scheduled
     && !item.completed
     && item.type !== 'rehab'
-    && isWorkoutAvailableToday(item.day));
+    && isWorkoutAvailableToday(item.day, item.week, activeWeek));
 
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -409,7 +409,7 @@ export default function Run() {
 
       <BrandedModal
         visible={showWrongDay}
-        title={`Please wait until ${WEEKDAYS[workoutWeekdayIndex(requestedWorkout?.day ?? 1)]}`}
+         title={`Please wait until Week ${requestedWorkout?.week ?? 1}, ${WEEKDAYS[workoutWeekdayIndex(requestedWorkout?.day ?? 1)]}`}
         message="This planned session can only be completed on its scheduled day. You can still record an unscheduled run now."
         onRequestClose={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}
         primaryLabel="Okay"

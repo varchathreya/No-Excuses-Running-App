@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { Screen, Header, Button, SectionTitle, styles } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
-import { isWorkoutAvailableToday, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, isWorkoutAvailableToday, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandedModal } from '@/components/BrandedModal';
 import Svg, { Circle } from 'react-native-svg';
@@ -33,7 +33,7 @@ export default function Rehab() {
   const [timerY, setTimerY] = useState(0);
   const [showUnavailable, setShowUnavailable] = useState(true);
   const workout = workouts.find((item) => item.id === workoutId);
-  const unavailable = !!workout && !isWorkoutAvailableToday(workout.day);
+  const unavailable = !!workout && !isWorkoutAvailableToday(workout.day, workout.week, activeWorkoutWeek(workouts));
   const completedExercises = sets.filter((count) => count >= 3).length;
   const allComplete = completedExercises === exercises.length;
   const current = exercises[active];
@@ -91,7 +91,7 @@ export default function Rehab() {
         )}
          <BrandedModal
            visible={unavailable && showUnavailable}
-           title={`Please wait until ${WEEKDAYS[workoutWeekdayIndex(workout?.day ?? 1)]}`}
+            title={`Please wait until Week ${workout?.week ?? 1}, ${WEEKDAYS[workoutWeekdayIndex(workout?.day ?? 1)]}`}
            message="This planned session can only be completed on its scheduled day. You can still review the routine now, but the timer stays locked until then."
            onRequestClose={() => setShowUnavailable(false)}
            primaryLabel="Okay"

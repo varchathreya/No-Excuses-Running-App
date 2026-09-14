@@ -27,12 +27,12 @@ function dateLabel() {
 
 export default function Today() {
   const colors = useColors();
-  const { workouts, completedCount, totalMiles } = useApp();
+  const { workouts, completedCount, totalMiles, networkAvailable } = useApp();
   const next = workouts.find((w) => w.scheduled && !w.completed);
   const activeWeek = next?.week ?? 4;
   const weekCompleted = workouts.filter((workout) => workout.week === activeWeek && workout.completed).length;
   const progress = Math.min(100, (weekCompleted / 7) * 100);
-  const quote = useGetDailyQuote({ date: localDateKey() });
+  const quote = useGetDailyQuote({ date: localDateKey() }, { query: { queryKey: ['/api/quotes/daily', { date: localDateKey() }], enabled: networkAvailable, retry: false } });
   const startNext = () => {
     if (!next) return;
     router.push(next.type === 'rehab' ? `/rehab?workoutId=${next.id}` : `/run?workoutId=${next.id}`);

@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { isWorkoutAvailableToday, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, isWorkoutAvailableToday, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -77,7 +77,7 @@ function formatEventTime(start?: string) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function WorkoutRow({ item, booked, calendarStart, onAlarmRequested, onStartRequested }: { item: Workout; booked: boolean; calendarStart?: string; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
+function WorkoutRow({ item, booked, calendarStart, networkAvailable, onAlarmRequested, onStartRequested }: { item: Workout; booked: boolean; calendarStart?: string; networkAvailable: boolean; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
   const colors = useColors();
   const { setAlarmChecked } = useApp();
   const weekday = WEEKDAYS[workoutWeekdayIndex(item.day)];
@@ -108,7 +108,7 @@ function WorkoutRow({ item, booked, calendarStart, onAlarmRequested, onStartRequ
             <Text style={[local.smallText, { color: colors.background }]}>{formatEventTime(calendarStart)}</Text>
           </View>
         ) : (
-          <Pressable testID={`book-${item.id}`} onPress={() => openCalendar(item)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : 'Book'}</Text></Pressable>
+          <Pressable testID={`book-${item.id}`} disabled={!networkAvailable} onPress={() => openCalendar(item)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border, opacity: networkAvailable ? 1 : 0.42 }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : networkAvailable ? 'Book' : 'Offline'}</Text></Pressable>
         )}
         <Pressable testID={`start-${item.id}`} onPress={() => onStartRequested(item)} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
         <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityLabel={alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} accessibilityHint={alarmChecked ? 'Uncheck here if you remove it in Clock' : undefined} accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={[local.smallButton, { borderColor: alarmChecked ? colors.accent : colors.border }]}>
@@ -124,7 +124,7 @@ export default function Schedule() {
   const colors = useColors();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { workouts, setAlarmChecked } = useApp();
+  const { workouts, setAlarmChecked, networkAvailable, offlineMode, isOnline } = useApp();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const [week, setWeek] = useState(1);
   const [pendingStart, setPendingStart] = useState<Workout | null>(null);
@@ -136,7 +136,7 @@ export default function Schedule() {
     {
       query: {
         queryKey: [...CALENDAR_PREVIEW_KEY],
-        enabled: authLoaded && !!isSignedIn,
+        enabled: authLoaded && !!isSignedIn && networkAvailable,
         retry: false,
       },
     },
@@ -147,7 +147,7 @@ export default function Schedule() {
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
   const navigateToWorkout = (item: Workout) => {
-    if (!isWorkoutAvailableToday(item.day)) {
+    if (!isWorkoutAvailableToday(item.day, item.week, activeWorkoutWeek(workouts))) {
       setPendingStart(item);
       return;
     }
@@ -255,7 +255,7 @@ export default function Schedule() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (previousAppState.current.match(/inactive|background/) && nextState === 'active') {
-        calendar.refetch();
+        if (networkAvailable) calendar.refetch();
         const pending = pendingAlarm.current;
         if (pending) {
           pendingAlarm.current = null;
@@ -265,15 +265,17 @@ export default function Schedule() {
       previousAppState.current = nextState;
     });
     return () => subscription.remove();
-  }, [calendar.refetch, setAlarmChecked]);
+  }, [calendar.refetch, networkAvailable, setAlarmChecked]);
   useEffect(() => {
-    const interval = setInterval(() => calendar.refetch(), 30000);
+    const interval = setInterval(() => {
+      if (networkAvailable) calendar.refetch();
+    }, 30000);
     return () => clearInterval(interval);
-  }, [calendar.refetch]);
+  }, [calendar.refetch, networkAvailable]);
   return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
     <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
 <View style={[local.notice, { backgroundColor: colors.card }]}>
-       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{authMismatch ? 'Calendar preview is unavailable' : calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
+       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{offlineMode ? 'Offline mode is on. Calendar actions are disabled.' : !isOnline ? 'No internet connection. Calendar will resume when you reconnect.' : authMismatch ? 'Calendar preview is unavailable' : calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
       {authMismatch && (
         <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>This build of No Excuses and the server are using different Clerk environments. Rebuild the APK with the matching Clerk key, then sign in again.</Text>
       )}
@@ -281,12 +283,12 @@ export default function Schedule() {
         <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>Your sign-in expired. Sign in again to check your calendar.</Text>
       )}
       <View style={local.accountActions}>
-        <Pressable accessibilityRole="button" onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
+         <Pressable accessibilityRole="button" disabled={!networkAvailable} onPress={() => Linking.openURL('https://calendar.google.com')} style={[local.accountButton, { backgroundColor: colors.secondary, opacity: networkAvailable ? 1 : 0.42 }]}><Feather name="external-link" size={14} color={colors.foreground} /><Text style={[local.accountButtonText, { color: colors.foreground }]}>Open GCal</Text></Pressable>
          <Pressable
            accessibilityRole="button"
-            disabled={linkingCalendar}
+             disabled={linkingCalendar || !networkAvailable}
             onPress={linkGoogleCalendar}
-           style={[local.accountButton, { backgroundColor: colors.secondary, opacity: linkingCalendar ? 0.65 : 1 }]}
+            style={[local.accountButton, { backgroundColor: colors.secondary, opacity: linkingCalendar || !networkAvailable ? 0.42 : 1 }]}
          >
             <Feather name={calendar.data?.connected ? 'repeat' : 'user-plus'} size={14} color={colors.foreground} />
            <Text style={[local.accountButtonText, { color: colors.foreground }]}>
@@ -300,7 +302,7 @@ export default function Schedule() {
        {calendar.data?.connected && (
          <Pressable
            accessibilityRole="button"
-           disabled={linkingCalendar}
+            disabled={linkingCalendar || !networkAvailable}
            onPress={disconnectGoogleCalendar}
            style={local.disconnectLink}
          >
@@ -313,12 +315,12 @@ export default function Schedule() {
     {visible.map((item) => {
       const marker = `W${item.week}D${item.day}`;
       const calendarEvent = calendar.data?.events.find((event) => event.summary.includes(marker));
-       return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
+        return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} networkAvailable={networkAvailable} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
      })}
      <BrandedModal
        visible={!!pendingStart}
-       title={`Please wait until ${pendingStart ? WEEKDAYS[workoutWeekdayIndex(pendingStart.day)] : ''}`}
-       message="This planned session can only be completed on its scheduled day. You can still open it on the correct day."
+        title={`Please wait until Week ${pendingStart?.week ?? 1}, ${pendingStart ? WEEKDAYS[workoutWeekdayIndex(pendingStart.day)] : ''}`}
+        message="This planned session can only be completed during its active plan week and on its scheduled day. You can still review it now."
        onRequestClose={() => setPendingStart(null)}
        primaryLabel="Okay"
        onPrimaryPress={() => setPendingStart(null)}
