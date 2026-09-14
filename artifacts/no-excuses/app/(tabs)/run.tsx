@@ -12,6 +12,7 @@ import { BrandedModal } from '@/components/BrandedModal';
 
 const EARTH_RADIUS = 6371000;
 const PACE_WINDOW_MS = 12000;
+const TARGET_PACE_SECONDS_PER_KM = 840;
 
 function distance(a: RoutePoint, b: RoutePoint) {
   const p = Math.PI / 180;
@@ -58,6 +59,7 @@ export default function Run() {
     && isWorkoutAvailableToday(item.day));
 
   const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [moving, setMoving] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [points, setPoints] = useState<RoutePoint[]>([]);
@@ -110,6 +112,56 @@ export default function Run() {
     setLivePace(smoothedPace.current);
   };
 
+  const handleLocation = (location: Location.LocationObject) => {
+    if (!runningRef.current) return;
+    const next: RoutePoint = {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+      altitude: location.coords.altitude ?? undefined,
+      accuracy: location.coords.accuracy ?? undefined,
+      timestamp: location.timestamp,
+    };
+
+    const current = pointsRef.current;
+    const previous = current[current.length - 1];
+    if (!previous || next.timestamp <= previous.timestamp || (next.accuracy ?? 999) > 25) return;
+
+    const delta = distance(previous, next);
+    const elapsed = (next.timestamp - previous.timestamp) / 1000;
+    const segmentSpeed = elapsed > 0 ? delta / elapsed : 0;
+    if (segmentSpeed > 12) return;
+
+    const recent = [...current.filter((point) => point.timestamp >= next.timestamp - PACE_WINDOW_MS), next];
+    const recentSeconds = (next.timestamp - recent[0].timestamp) / 1000;
+    const windowSpeed = recentSeconds > 0 ? routeDistance(recent) / recentSeconds : 0;
+    const deviceSpeed = location.coords.speed ?? 0;
+    const validDeviceSpeed = deviceSpeed >= 0.5 && deviceSpeed <= 12 ? deviceSpeed : 0;
+    const responsiveSpeed = windowSpeed > 0 && validDeviceSpeed > 0
+      ? windowSpeed * 0.7 + validDeviceSpeed * 0.3
+      : windowSpeed || validDeviceSpeed || segmentSpeed;
+    updateLivePace(responsiveSpeed);
+
+    if (delta < 1.2 || segmentSpeed < 0.35) return;
+    const updatedPoints = [...current, next];
+    pointsRef.current = updatedPoints;
+    metersRef.current += delta;
+    setPoints(updatedPoints);
+    setMeters(metersRef.current);
+  };
+
+  const subscribeToLocation = async () => {
+    const subscription = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 2 },
+      handleLocation,
+    );
+    if (runningRef.current) {
+      watch.current?.remove();
+      watch.current = subscription;
+    } else {
+      subscription.remove();
+    }
+  };
+
   const startTracking = async (linkedWorkout?: Workout) => {
     if (startingRef.current || runningRef.current) return;
     startingRef.current = true;
@@ -136,6 +188,7 @@ export default function Run() {
       setSeconds(0);
       setMoving(false);
       setLivePace(null);
+      setPaused(false);
       setCompletedActivity(null);
       setLinkedWorkoutId(linkedWorkout?.id);
       paceSamples.current = [];
@@ -143,53 +196,49 @@ export default function Run() {
       startedAt.current = Date.now();
       runningRef.current = true;
       setRunning(true);
-
-      const subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 2 },
-        (location) => {
-          if (!runningRef.current) return;
-          const next: RoutePoint = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            altitude: location.coords.altitude ?? undefined,
-            accuracy: location.coords.accuracy ?? undefined,
-            timestamp: location.timestamp,
-          };
-
-          const current = pointsRef.current;
-          const previous = current[current.length - 1];
-          if (!previous || next.timestamp <= previous.timestamp || (next.accuracy ?? 999) > 25) return;
-
-          const delta = distance(previous, next);
-          const elapsed = (next.timestamp - previous.timestamp) / 1000;
-          const segmentSpeed = elapsed > 0 ? delta / elapsed : 0;
-          if (segmentSpeed > 12) return;
-
-          const recent = [...current.filter((point) => point.timestamp >= next.timestamp - PACE_WINDOW_MS), next];
-          const recentSeconds = (next.timestamp - recent[0].timestamp) / 1000;
-          const windowSpeed = recentSeconds > 0 ? routeDistance(recent) / recentSeconds : 0;
-          const deviceSpeed = location.coords.speed ?? 0;
-          const validDeviceSpeed = deviceSpeed >= 0.5 && deviceSpeed <= 12 ? deviceSpeed : 0;
-          const responsiveSpeed = windowSpeed > 0 && validDeviceSpeed > 0
-            ? windowSpeed * 0.7 + validDeviceSpeed * 0.3
-            : windowSpeed || validDeviceSpeed || segmentSpeed;
-          updateLivePace(responsiveSpeed);
-
-          if (delta < 1.2 || segmentSpeed < 0.35) return;
-          const updatedPoints = [...current, next];
-          pointsRef.current = updatedPoints;
-          metersRef.current += delta;
-          setPoints(updatedPoints);
-          setMeters(metersRef.current);
-        },
-      );
-      if (runningRef.current) watch.current = subscription;
-      else subscription.remove();
+      await subscribeToLocation();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {
       runningRef.current = false;
       setRunning(false);
       Alert.alert('GPS unavailable', 'No Excuses could not get a reliable location. Check Location Services and try again outdoors.');
+    } finally {
+      startingRef.current = false;
+      setStarting(false);
+    }
+  };
+
+  const pauseTracking = () => {
+    if (!runningRef.current) return;
+    runningRef.current = false;
+    watch.current?.remove();
+    watch.current = null;
+    setRunning(false);
+    setPaused(true);
+    setMoving(false);
+    setLivePace(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const resumeTracking = async () => {
+    if (startingRef.current || runningRef.current || !paused) return;
+    startingRef.current = true;
+    setStarting(true);
+    try {
+      runningRef.current = true;
+      setRunning(true);
+      setPaused(false);
+      setMoving(false);
+      setLivePace(null);
+      paceSamples.current = [];
+      smoothedPace.current = null;
+      await subscribeToLocation();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      runningRef.current = false;
+      setRunning(false);
+      setPaused(true);
+      Alert.alert('GPS unavailable', 'No Excuses could not resume location tracking. Check Location Services and try again outdoors.');
     } finally {
       startingRef.current = false;
       setStarting(false);
@@ -209,11 +258,12 @@ export default function Run() {
     watch.current?.remove();
     watch.current = null;
     setRunning(false);
+    setPaused(false);
     setMoving(false);
     setLivePace(null);
     const route = [...pointsRef.current];
     const distanceMeters = metersRef.current;
-    const elapsedSeconds = Math.max(1, Math.floor((Date.now() - startedAt.current) / 1000));
+    const elapsedSeconds = Math.max(1, seconds);
     const activity: Activity = {
       id: `${Date.now()}`,
       startedAt: startedAt.current,
@@ -231,6 +281,7 @@ export default function Run() {
 
   const reset = () => {
     setCompletedActivity(null);
+    setPaused(false);
     pointsRef.current = [];
     metersRef.current = 0;
     setPoints([]);
@@ -253,21 +304,19 @@ export default function Run() {
     latitudeDelta: .01,
     longitudeDelta: .01,
   } : undefined;
-  const paceWarning = running && moving && livePace
-    ? livePace < 300
-      ? 'Slow down — stay in your easy effort range.'
-      : livePace > 840
-        ? 'Pick up slightly — stay within your planned easy pace.'
-        : null
+  const paceStatus = running && !!linkedWorkoutId && moving && livePace !== null
+    ? livePace <= TARGET_PACE_SECONDS_PER_KM
+      ? { onTrack: true, label: 'Pace is great!' }
+      : { onTrack: false, label: 'Please speed up to keep pace for this run' }
     : null;
   const previewWorkout = ignoreRequestedWorkout ? undefined : requestedWorkout;
 
   return (
     <Screen>
       <Header
-        eyebrow={running ? 'RECORDING · LIVE GPS' : completedActivity ? 'RUN SAVED' : 'OUTDOOR SESSION'}
+        eyebrow={running ? 'RECORDING · LIVE GPS' : paused ? 'RUN PAUSED' : completedActivity ? 'RUN SAVED' : 'OUTDOOR SESSION'}
         title={completedActivity ? 'Completed run' : 'Run tracking'}
-        action={<Pill color={running || completedActivity ? colors.accent : colors.secondary}>{running ? 'GPS LIVE' : completedActivity ? 'SAVED' : 'GPS READY'}</Pill>}
+        action={<Pill color={running || completedActivity ? colors.accent : colors.secondary}>{running ? 'GPS LIVE' : paused ? 'PAUSED' : completedActivity ? 'SAVED' : 'GPS READY'}</Pill>}
       />
 
       {previewWorkout && !completedActivity && (
@@ -298,14 +347,19 @@ export default function Run() {
             <Text style={[local.metricLabel, { color: colors.mutedForeground }]}>DISTANCE</Text>
             <Text style={[local.distance, { color: colors.foreground }]}>{(meters / 1000).toFixed(2)} <Text style={local.unit}>KM</Text></Text>
           </View>
-          <View style={[local.liveMetrics, { borderTopColor: colors.border }]}>
+          <View style={[local.liveMetrics, !linkedWorkoutId && local.liveMetricsSolo, { borderTopColor: colors.border }]}>
             <Metric label="TIME" value={timeLabel(seconds)} />
-            <Metric label="LIVE PACE / KM" value={running ? paceLabel(livePace) : '—'} />
+            {linkedWorkoutId && <Metric label="LIVE PACE / KM" value={running ? paceLabel(livePace) : '—'} />}
           </View>
         </View>
       )}
 
-      {paceWarning && <View style={[local.paceAlert, { backgroundColor: colors.destructive }]}><Text style={[local.paceAlertText, { color: colors.destructiveForeground }]}>PACE CHECK · {paceWarning}</Text></View>}
+      {paceStatus && (
+        <View style={[local.paceStatus, { backgroundColor: paceStatus.onTrack ? colors.accent : colors.destructive }]}>
+          <Feather name={paceStatus.onTrack ? 'check-circle' : 'alert-circle'} size={24} color={paceStatus.onTrack ? colors.accentForeground : colors.destructiveForeground} />
+          <Text style={[local.paceStatusText, { color: paceStatus.onTrack ? colors.accentForeground : colors.destructiveForeground }]}>{paceStatus.label}</Text>
+        </View>
+      )}
 
       {region ? (
         <NativeRouteMap route={displayedRoute} region={region} strokeColor={colors.primary} startColor={colors.accent} endColor={colors.primary} />
@@ -318,10 +372,12 @@ export default function Run() {
 
       {!completedActivity && (
         <>
-          <SectionTitle>{running ? 'Live tracking' : last?.route.length ? 'Most recent route preview' : 'Ready when you are'}</SectionTitle>
+          <SectionTitle>{running ? 'Live tracking' : paused ? 'Run paused' : last?.route.length ? 'Most recent route preview' : 'Ready when you are'}</SectionTitle>
           <Text style={[styles.muted, { color: colors.mutedForeground }]}>
             {running
               ? 'Pace uses the most recent GPS window, filters inaccurate points, and smooths short spikes without averaging the entire run.'
+              : paused
+                ? 'Run paused. Resume when you are ready, or save the route below.'
               : 'Start at any time. If today has a planned outdoor session, you can link the run to it or keep the activity unscheduled.'}
           </Text>
         </>
@@ -329,7 +385,15 @@ export default function Run() {
 
       <View style={local.controls}>
         {running ? (
-          <Button label="Finish and save route" icon="square" onPress={finish} />
+          <>
+            <Button label="Pause run" icon="pause" secondary onPress={pauseTracking} />
+            <Button label="Finish and save route" icon="square" onPress={finish} />
+          </>
+        ) : paused ? (
+          <>
+            <Button label={starting ? 'Resuming GPS…' : 'Resume run'} icon="play" disabled={starting} onPress={resumeTracking} />
+            <Button label="Finish and save route" icon="square" secondary onPress={finish} />
+          </>
         ) : completedActivity ? (
           <>
             <Button label="View this run in history" icon="list" onPress={() => router.push(`/runs/${completedActivity.id}?map=1`)} />
@@ -382,6 +446,7 @@ const local = StyleSheet.create({
   distance: { fontFamily: 'Inter_700Bold', fontSize: 54, letterSpacing: -2, marginTop: 5 },
   unit: { fontSize: 17, letterSpacing: 0 },
   liveMetrics: { flexDirection: 'row', borderTopWidth: 1, paddingTop: 18, marginTop: 8 },
+  liveMetricsSolo: { justifyContent: 'flex-start' },
   metric: { flex: 1 },
   metricLabel: { fontFamily: 'Inter_700Bold', letterSpacing: 1, fontSize: 10 },
   metricValue: { fontFamily: 'Inter_700Bold', fontSize: 20, marginTop: 5 },
@@ -391,8 +456,8 @@ const local = StyleSheet.create({
   savedIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   summaryGrid: { gap: 22 },
   summaryRow: { flexDirection: 'row', gap: 16 },
-  paceAlert: { borderRadius: 14, padding: 12, marginBottom: 12 },
-  paceAlertText: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: .35, lineHeight: 16 },
+  paceStatus: { minHeight: 92, borderRadius: 20, padding: 18, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  paceStatusText: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 18, lineHeight: 24 },
   emptyMap: { height: 190, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 18 },
   mapLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: .5 },
   controls: { paddingTop: 18, gap: 10, paddingBottom: 8 },

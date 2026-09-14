@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, Region, UrlTile } from 'react-native-maps';
 import { WebView } from 'react-native-webview';
@@ -6,18 +6,7 @@ import { RoutePoint } from '@/context/AppContext';
 
 export default function NativeRouteMap({ route, region, strokeColor, startColor, endColor }: { route: RoutePoint[]; region?: Region; strokeColor: string; startColor: string; endColor: string }) {
   if (Platform.OS === 'android') {
-    return (
-      <View style={local.frame}>
-        <WebView
-          originWhitelist={['*']}
-          javaScriptEnabled
-          source={{ html: createOpenStreetMapHtml(route, strokeColor, startColor, endColor) }}
-          style={local.webMap}
-          scrollEnabled={false}
-          automaticallyAdjustContentInsets={false}
-        />
-      </View>
-    );
+    return <AndroidRouteMap route={route} strokeColor={strokeColor} startColor={startColor} endColor={endColor} />;
   }
 
   const map = useRef<MapView>(null);
@@ -54,6 +43,43 @@ export default function NativeRouteMap({ route, region, strokeColor, startColor,
   );
 }
 
+function AndroidRouteMap({ route, strokeColor, startColor, endColor }: { route: RoutePoint[]; strokeColor: string; startColor: string; endColor: string }) {
+  const webMap = useRef<WebView>(null);
+  const routeRef = useRef(route);
+  const mapReady = useRef(false);
+  const initialHtml = useMemo(
+    () => createOpenStreetMapHtml(route, strokeColor, startColor, endColor),
+    [strokeColor, startColor, endColor],
+  );
+  const updateRoute = useCallback((nextRoute: RoutePoint[]) => {
+    const coordinates = nextRoute.map(({ latitude, longitude }) => [latitude, longitude]);
+    webMap.current?.injectJavaScript(`window.updateRoute(${JSON.stringify(coordinates)}); true;`);
+  }, []);
+
+  useEffect(() => {
+    routeRef.current = route;
+    if (mapReady.current) updateRoute(route);
+  }, [route, updateRoute]);
+
+  return (
+    <View style={local.frame}>
+      <WebView
+        ref={webMap}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        source={{ html: initialHtml }}
+        onLoadEnd={() => {
+          mapReady.current = true;
+          updateRoute(routeRef.current);
+        }}
+        style={local.webMap}
+        scrollEnabled={false}
+        automaticallyAdjustContentInsets={false}
+      />
+    </View>
+  );
+}
+
 function createOpenStreetMapHtml(route: RoutePoint[], strokeColor: string, startColor: string, endColor: string) {
   const coordinates = route.map(({ latitude, longitude }) => [latitude, longitude]);
   const routeJson = JSON.stringify(coordinates);
@@ -71,20 +97,32 @@ function createOpenStreetMapHtml(route: RoutePoint[], strokeColor: string, start
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    const route = ${routeJson};
     const map = L.map('map', { zoomControl: false, attributionControl: true });
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
-    const line = L.polyline(route, { color: '${strokeColor}', weight: 5, lineCap: 'round', lineJoin: 'round' }).addTo(map);
-    if (route.length) {
-      L.circleMarker(route[0], { radius: 7, color: '${startColor}', fillColor: '${startColor}', fillOpacity: 1, weight: 2 }).addTo(map);
-      if (route.length > 1) {
-        L.circleMarker(route[route.length - 1], { radius: 7, color: '${endColor}', fillColor: '${endColor}', fillOpacity: 1, weight: 2 }).addTo(map);
+    let line = null;
+    let markers = [];
+    function updateRoute(route) {
+      if (line) {
+        map.removeLayer(line);
+        line = null;
       }
-      map.fitBounds(line.getBounds(), { padding: [24, 24] });
+      markers.forEach((marker) => map.removeLayer(marker));
+      markers = [];
+      if (!Array.isArray(route) || route.length === 0) return;
+      line = L.polyline(route, { color: '${strokeColor}', weight: 5, lineCap: 'round', lineJoin: 'round' }).addTo(map);
+      markers.push(L.circleMarker(route[0], { radius: 7, color: '${startColor}', fillColor: '${startColor}', fillOpacity: 1, weight: 2 }).addTo(map));
+      if (route.length > 1) {
+        markers.push(L.circleMarker(route[route.length - 1], { radius: 7, color: '${endColor}', fillColor: '${endColor}', fillOpacity: 1, weight: 2 }).addTo(map));
+        map.fitBounds(line.getBounds(), { padding: [24, 24] });
+      } else {
+        map.setView(route[0], 16);
+      }
     }
+    window.updateRoute = updateRoute;
+    updateRoute(${routeJson});
   </script>
 </body>
 </html>`;
