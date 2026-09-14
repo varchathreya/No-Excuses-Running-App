@@ -6,7 +6,7 @@ import { useColors } from '@/hooks/useColors';
 
 export function Screen({ children, scroll = true }: { children: React.ReactNode; scroll?: boolean }) {
   const colors = useColors(); const insets = useSafeAreaInsets();
-  const content = <View style={[styles.content, !scroll && styles.fill, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 24 }]}>{children}</View>;
+  const content = <View style={[styles.content, !scroll && styles.fill, { paddingTop: insets.top + 18, paddingBottom: scroll ? insets.bottom + 24 : 0 }]}>{children}</View>;
   return <View style={[styles.root, { backgroundColor: colors.background }]}>{scroll ? <ScrollView style={styles.fill} showsVerticalScrollIndicator={false}>{content}</ScrollView> : content}</View>;
 }
 export function Header({ eyebrow, title, action }: { eyebrow: string; title: string; action?: React.ReactNode }) {
