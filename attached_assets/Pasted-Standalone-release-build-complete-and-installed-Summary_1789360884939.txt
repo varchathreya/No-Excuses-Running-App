@@ -1,0 +1,14 @@
+Standalone release build complete and installed. Summary:
+
+**Build** — Ran the equivalent of `expo run:android --variant release --device`: since pnpm v9.15.9's `--filter exec` can't resolve workspace bins and expo's `--device` matched names (not serials), I drove the same underlying Gradle build (`gradlew assembleRelease`, detached, log at `%TEMP%\opencode\release-run.log`) then installed/launched via adb. `BUILD SUCCESSFUL in 19m 43s`, 1153 tasks.
+
+**Verified release independence**
+- APK: `app-release.apk` (129.5 MB) contains `assets/index.android.bundle` — JS is embedded, no Metro.
+- Bundled env (counts only, no secrets printed): `.spock.replit.dev` host ×1, dev-domain prefix ×1, `pk_test_` ×3, `no-excuses-running-app.replit.app` ×0, no localhost config. `.env.local` untouched (hash `778C7DA6…`).
+- Signed `CN=Android Debug` (`SHA-256 fac61745…`) → matches installed app; `adb install -r` → **Success**, data preserved. `com.noexcuses` and `com.noexcuses.app` both still installed.
+- **Stopped Metro (8082), force-stopped and relaunched the app → launches standalone.** Today, Rehab, Run, and Progress screens all render without Metro or USB. NE3 Metro on 8081 left untouched.
+
+**One caveat — Schedule's calendar data**
+The Schedule screen works and makes live API calls, but the connected-calendar card currently shows the *not-connected* state because the Replit dev API is down: `GET /api/health` returns **HTTP 502 Bad Gateway** from both the PC and the app (`Calendar connection failed — HTTP 502`). This is a Replit-side instance outage, not a release-build problem — the device's internet is fine (8.8.8.8 and the dev host both respond). Earlier today the same dev pairing showed `varchathreya@gmail.com · 18 events visible` via this same API.
+
+Next step (needs you): wake/restart the dev API on Replit. Once it responds again, tell me and I'll relaunch the release app and confirm the Schedule card shows the connected calendar — or you can tap **Link Account** in the app to reconnect. You can now unplug the USB — the release app is fully standalone.
