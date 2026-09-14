@@ -6,3 +6,4 @@
 - [Run linkage](run-linkage.md) — unscheduled activities remain in history but never complete or modify a planned workout.
 - [React Query bundling](react-query-bundling.md) — pnpm workspace Metro bundles must resolve one React Query module for generated hooks and the root provider to share context.
 - [Pnpm lockfile validation](pnpm-lockfile-validation.md) — refresh the existing lockfile with offline pnpm before frozen validation; alternate-version regeneration creates unrelated churn.
+- [Stable Android releases](stable-android-releases.md) — tag the tested source and archive the exact standalone APK separately; Git source history alone cannot restore the binary.
