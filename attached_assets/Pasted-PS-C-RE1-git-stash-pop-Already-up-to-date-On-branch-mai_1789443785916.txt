@@ -1,0 +1,73 @@
+PS C:\RE1> git stash pop
+Already up to date.
+On branch main
+Your branch is ahead of 'origin/main' by 3 commits.
+  (use "git push" to publish your local commits)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        screenshots/val2_00_launch.png
+        screenshots/val2_01_wake.png
+        screenshots/val2_02_awake.png
+        screenshots/val2_10_unlocked.png
+
+nothing added to commit but untracked files present (use "git add" to track)
+Dropped refs/stash@{0} (aa2429efc6c55793404309579b293da7e3ebc948)
+PS C:\RE1> git status --short --branch
+>> git log --graph --decorate --oneline --all -25
+## main...origin/main [ahead 3]
+?? screenshots/val2_00_launch.png
+?? screenshots/val2_01_wake.png
+?? screenshots/val2_02_awake.png
+?? screenshots/val2_10_unlocked.png
+*   44c9e5b (HEAD -> main) Merge origin main into RE1
+|\
+| * 8d17c36 (origin/main, origin/HEAD) Add save state reference file
+| * 99864ee Add save state asset file
+| * a75c708 Attach audit report document
+| * 017a810 Add API host configuration asset
+| * fe1f5e7 Expose API health endpoints
+| * 9ecd1ea Attach standalone validation report for release APK
+| * d4ad68b Add setup validation report repository details
+* | aa967b8 (backup-before-origin-sync) v3 pre-push
+* | 235c9b5 Sync pnpm lockfile with Expo dependencies
+|/
+*   42d4dfd (backup-before-prebuild) After the second working build, we made some additoinal changes: adding offline mode and fixing the white screen error when offline. But the pushed repo from the local environment post-build was different from this changed repo so we made a branch.
+|\
+| * 595d3ba second working apk version
+* | c9c7b23 Use native connectivity checks and web online events
+* | 27275b0 Add offline run support and enforce plan weeks
+|/
+* d278ffa Document stable Android release preservation
+* e3e27c2 Fix run map flicker and add pace controls
+* 839a2a5 Add WhatsApp video asset
+* e812eb0 (tag: no-excuses-stable-apk-2026-09-14) Attach build installation summary report
+* eae8e1c Fix component rendering in Screen.tsx
+* 8dec19f Add explanatory text file for asset clarification
+* 8414136 Add image asset to documentation
+* 5bd12c1 Published your App
+* f442b7f Add auth session preflight and request-scoped calendar linking
+* c5716ef Add objective instruction assets
+* a9c3555 Published your App
+PS C:\RE1> pnpm install --frozen-lockfile
+>> pnpm --filter @workspace/no-excuses run typecheck
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: -176
+----------------------------------------------------------------------------------------------------------------------
+
+   ╭──────────────────────────────────────────────────────────────────╮
+   │                                                                  │
+   │                Update available! 9.15.9 → 12.4.1.                │
+   │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v12.4.1   │
+   │                Run "pnpm add -g pnpm" to update.                 │
+   │                                                                  │
+   ╰──────────────────────────────────────────────────────────────────╯
+
+Progress: resolved 0, reused 151, downloaded 0, added 0, done
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm…
+└─ Done in 103ms
+Done in 3s using pnpm v9.15.9
+
+> @workspace/no-excuses@0.0.0 typecheck C:\RE1\artifacts\no-excuses
+> tsc -p tsconfig.json --noEmit
