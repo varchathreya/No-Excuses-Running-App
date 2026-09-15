@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState as RNAppState, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { createInitialWorkouts, type WorkoutSessionKind } from '@/constants/workoutPlan';
+import { createInitialWorkouts, type GaitProtocol, type RehabRoutine, type WorkoutSessionKind } from '@/constants/workoutPlan';
 
 export type Workout = {
   id: string;
@@ -13,12 +13,23 @@ export type Workout = {
   kind: WorkoutSessionKind;
   duration: string;
   focus: string;
+  protocolId?: GaitProtocol;
+  rehabRoutine?: RehabRoutine;
   scheduled: boolean;
   completed: boolean;
   alarmSet?: boolean;
 };
 export type RoutePoint = { latitude: number; longitude: number; altitude?: number; accuracy?: number; timestamp: number };
 export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[]; workoutId?: string };
+export type RehabSetLog = { set: number; reps: number; weight: string };
+export type RehabLog = {
+  id: string;
+  workoutId: string;
+  exerciseKey: string;
+  exerciseTitle: string;
+  sets: RehabSetLog[];
+  completedAt: number;
+};
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
 export function activeWorkoutWeek(workouts: Workout[]) {
@@ -53,11 +64,13 @@ function hydrateWorkouts(saved: string | null): Workout[] {
 type AppState = {
   workouts: Workout[];
   activities: Activity[];
+  rehabLogs: RehabLog[];
   scheduleAll: () => void;
   toggleSchedule: (id: string) => void;
   completeWorkout: (id: string) => void;
   setAlarmChecked: (id: string, checked: boolean) => void;
   saveActivity: (activity: Activity) => void;
+  saveRehabLog: (log: RehabLog) => void;
   offlineMode: boolean;
   isOnline: boolean;
   networkAvailable: boolean;
@@ -69,6 +82,7 @@ const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [rehabLogs, setRehabLogs] = useState<RehabLog[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [offlineMode, setOfflineModeState] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -76,13 +90,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     Promise.all([
       AsyncStorage.getItem('no-excuses-workouts'),
       AsyncStorage.getItem('no-excuses-activities'),
-    ]).then(([savedWorkouts, savedActivities]) => {
+      AsyncStorage.getItem('no-excuses-rehab-logs'),
+    ]).then(([savedWorkouts, savedActivities, savedRehabLogs]) => {
       setWorkouts(hydrateWorkouts(savedWorkouts));
       if (savedActivities) {
         try {
           setActivities(JSON.parse(savedActivities));
         } catch {
           setActivities([]);
+        }
+      }
+      if (savedRehabLogs) {
+        try {
+          setRehabLogs(JSON.parse(savedRehabLogs));
+        } catch {
+          setRehabLogs([]);
         }
       }
       setHydrated(true);
@@ -99,6 +121,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     void AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities));
   }, [activities, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    void AsyncStorage.setItem('no-excuses-rehab-logs', JSON.stringify(rehabLogs));
+  }, [hydrated, rehabLogs]);
   const setOfflineMode = useCallback((enabled: boolean) => {
     setOfflineModeState(enabled);
     void AsyncStorage.setItem('no-excuses-offline-mode', String(enabled));
@@ -153,19 +179,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
-    workouts, activities,
+    workouts, activities, rehabLogs,
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
     setAlarmChecked: (id: string, checked: boolean) => update((items) => items.map((item) => item.id === id ? { ...item, alarmSet: checked } : item)),
     saveActivity: (activity: Activity) => setActivities((items) => [activity, ...items]),
+    saveRehabLog: (log: RehabLog) => setRehabLogs((items) => [log, ...items]),
     offlineMode,
     isOnline,
     networkAvailable: !offlineMode && isOnline,
     setOfflineMode,
     completedCount: workouts.filter((item) => item.completed).length,
     totalMiles: activities.reduce((sum, activity) => sum + activity.distanceMeters / 1609.34, 0),
-  }), [workouts, activities, offlineMode, isOnline, setOfflineMode]);
+  }), [workouts, activities, rehabLogs, offlineMode, isOnline, setOfflineMode]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 export function useApp() { const context = useContext(AppContext); if (!context) throw new Error('useApp must be used inside AppProvider'); return context; }
