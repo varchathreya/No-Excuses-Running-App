@@ -11,6 +11,10 @@ import {
 
 const app: Express = express();
 
+app.get("/", (_req, res) => {
+  res.json({ status: "ok", service: "api-server" });
+});
+
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(clerkMiddleware());
 

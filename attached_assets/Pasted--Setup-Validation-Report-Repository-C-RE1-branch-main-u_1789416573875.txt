@@ -1,0 +1,24 @@
+## Setup & Validation Report
+
+**Repository** — `C:\RE1`, branch `main`, up to date with `origin/main` (0 ahead/0 behind), clean before install. Offline/week-gating commits present on the branch: `27275b0` (offline support + enforce plan weeks), `c9c7b23` (native connectivity), `42d4dfd` (offline white-screen fix).
+
+**Tool versions**
+- Node `v26.8.2` · pnpm `9.15.9` · Java `17.0.20.1 LTS` (`JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot\`)
+- adb `37.0.1` (`ANDROID_HOME` / `ANDROID_SDK_ROOT` set)
+- SDK: build-tools `34/35/36/37.0.0`, platforms `android-34, -36, -37.0` (targetSdk 36 platform present)
+
+**Device** — `ZY224LNJKD` present and authorized: `device product:potter model:Moto_G__5__Plus`. OK.
+
+**env file** — `C:\RE1\.env.local` does **not** exist; per your decision I used `C:\RE1\artifacts\no-excuses\.env.local`, which **exists**, is git-ignored (`app .gitignore` + root `.gitignore`), and untracked. No values read or printed.
+
+**Dependency installation** — `--frozen-lockfile` failed (`ERR_PNPM_OUTDATED_LOCKFILE`, stale due to committed `expo ~57.0.20` vs `package.json` `~57.0.21`). Offline refresh resolved fully but lacked `@react-native-masked-view@0.3.2`; completed online. **1146 packages installed**, no version upgrades (catalog/package resolutions identical to origin; only specifier text + section moves changed). SUCCESS.
+
+**Lockfile changed** — Yes: `pnpm-lock.yaml` modified (`M`). Diff vs origin is large (~10k lines formatting + peer-hash cascade) with semantic deltas: `expo ~57.0.20`→`~57.0.21`, and `react`/`react-native`/`expo` moved devDependencies→dependencies to match `package.json`. The only other working-tree changes were ignored build artifacts (`lib/api-client-react/dist`). Full diff: `git diff origin/main -- pnpm-lock.yaml`.
+
+**Typecheck** — `pnpm --filter @workspace/no-excuses run typecheck` was gated on `lib/api-client-react` build output (`tsc --build`); after `pnpm run typecheck:libs` it **passed** (the one `TS7006` was a cascade from the missing `.d.ts`).
+
+**Expo health check** — `expo-doctor`: **19/21 passed**. Two existing-condition failures (not fixed per no-upgrade rule):
+1. Duplicate `expo-constants@57.0.17` — same version in app-local and hoisted root `node_modules`, a layout artifact of `node-linker=hoisted`, resolves to identical code.
+2. SDK 57 patch drift — 20 expo packages are one patch behind the latest expected (e.g. `expo ~57.0.22` expected vs `57.0.21`, `expo-router ~57.0.21` vs `57.0.20`). Patch-level only, matching the pinned versions that produced the prior working release.
+
+**Ready for prebuild** — Yes, with two non-blocking caveats: decide whether to accept the lockfile change into the branch, and be aware the 2 doctor items are pre-existing and unchanged by this setup. Stopping here per instructions; no prebuild run.

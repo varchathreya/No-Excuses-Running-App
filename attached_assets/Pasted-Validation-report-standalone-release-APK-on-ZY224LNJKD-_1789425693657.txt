@@ -1,0 +1,20 @@
+Validation report — standalone release APK on ZY224LNJKD
+1. Standalone launch — PASS. Installed APK launches from the embedded bundle (ReactNativeJS: Running "main"), no Metro/dev-launcher, PID 28380 stable across the whole session. Caveat below re: dev-client.
+
+2. Plan state — PASS. Week 1 active; 1/7 sessions, 0.2 mi, 3 total; "Up next WEEK 1 · Strength + Foot Stability"; Schedule shows Week 1–4 and calendar varchathreya@gmail.com / 17 events.
+
+3. Plan-week protection — PASS.
+
+Future week: Week 3 Mon "Walk / Jog Intervals" Start → "Please wait until Week 3, Monday. This planned session can only be completed during its active plan week and on its scheduled day."
+Same-week wrong day: Week 1 Tue → "Please wait until Week 1, Tuesday… the timer stays locked."
+Active week, correct day startable: Week 1 Mon outdoor run began with no lock.
+4. Offline mode toggle — PASS. ONLINE↔OFFLINE chip flips; Schedule shows "Offline mode is on. Calendar actions are disabled."; Book buttons relabel "Offline"; Open GCal inert (no launch); Today/Rehab/run page all available offline.
+
+5. Real Wi-Fi-off run — PASS. svc wifi disable (GPS kept on): no white screen (map ~5.6% white pre/post), timer kept advancing across the offline window, finished → 0.00 km / 5:47 / GPS POINTS 1, saved with NO WIFI + SAVED badges, route map rendered, TIME matches timer exactly.
+
+6. Unscheduled activity — PASS. Run tab → Start outdoor session (today's planned run already DONE → no link modal) tracked and saved as "Unscheduled outdoor run"; weekly count unchanged (1/7). Note: start has a GPS-readiness gate — indoors with no fix it shows "GPS unavailable… try again outdoors" (env-dependent, a fix was attained on the first start).
+
+7. Connectivity restore — PASS. Wi-Fi back on → chip ONLINE; calendar card restored (17 events), Open GCal actually launched Google Calendar (OPEN_CALENDAR intent).
+
+Two findings needing your call
+Calendar sign-in was lost and reconnect fails: after Open GCal → return, the app dropped auth to the Welcome screen, and "Tools"/reconnect returned HTTP 404 from the calendar endpoint (it worked earlier — 17 events). App is currently parked on the sign-in screen (Google account chooser needs manual selection).

@@ -1,0 +1,41 @@
+Audit complete (read-only; nothing modified). Report:
+
+## 1. Branch state
+- Local `main` = `235c9b5`; `origin/main` (after fetch) = `fe1f5e7`. Local is **ahead 1 / behind 3** — not on latest main yet.
+- Incoming on origin/main: `fe1f5e7 Expose API health endpoints`, `9ecd1ea …report…`, `d4ad68b …report…`.
+- Working tree (pre-existing, not from this audit): `artifacts/no-excuses/app.json`, `package.json`, `pnpm-lock.yaml` (dev-client strip) modified; `screenshots/` untracked.
+
+## 2. Commit fe1f5e7 (`Expose API health endpoints`)
+- **Not in the current branch** — present only on origin/main. Backend-only change (adds health routes to `api-server`); the deployed remote already answers `/api/healthz` → 200.
+
+## 3–6. Environment file `artifacts/no-excuses\.env.local`
+- Exists: **yes**.
+- Variable names only: `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_DOMAIN`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` (no `EXPO_PUBLIC_CLERK_PROXY_URL`).
+- `EXPO_PUBLIC_API_URL`: hostname `923c16c1-1570-447b-89b7-98597853569d-00-2l596q1y069m6.spock.replit.dev`, pathname `/`, HTTPS **yes** — matches the confirmed API host exactly.
+- `EXPO_PUBLIC_DOMAIN`: same host, bare (no scheme) — handled by the https:// prepend in `_layout.tsx`.
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: exists, prefix `pk_test_` (test key).
+- API URL is **not** localhost, **not** an old host, **not** the Expo/Metro packager (localhost:8081 appears only as the build-time Metro bundler in `scripts/build.js`), **not** the production domain. `pk_test_` ↔ Replit dev host = consistent.
+
+## 7. Other env files (conflicts)
+- `C:\RE1\.env` — no
+- `C:\RE1\.env.local` — no
+- `artifacts/no-excuses\.env` — no
+- `artifacts/no-excuses\.env.local` — yes (the only one; no overrides).
+
+## 8. `app/_layout.tsx`
+- `EXPO_PUBLIC_API_URL` preferred (line 26), `EXPO_PUBLIC_DOMAIN` fallback (line 26), `https://` prepended when scheme missing (lines 30–32), exact trailing `/api` path stripped (line 35), no hardcoded localhost for the API base.
+
+## 9. Endpoint checks (no auth header)
+- `GET /` → **200** but body is an **HTML document** (not a JSON health payload) — flagged vs. expectation.
+- `GET /api/healthz` → **200** `{"status":"ok"}`
+- `GET /api/calendar/oauth/status` → **401** `{"code":"AUTH_REQUIRED","message":"Sign in required."}`
+
+## 10. Hardcoded domains in source
+- Runtime app source: **none** (no old Replit hosts, no production domains, no localhost API base). `no-excuses` matches are the app scheme (lib/oauth.ts) and AsyncStorage keys (context/AppContext.tsx); `com.noexcuses.app` is the Android package id (app.json).
+- `scripts/build.js` lines 119/162/242/270/354/396/469: localhost:8081 = local Metro bundler during packaging only.
+- `api-client-react` package: no defaults; base URL set at runtime via `setBaseUrl()`.
+- `package.json` dev script uses `$REPLIT_*` placeholders (not hardcoded).
+
+## Verdict
+- API host: **correct** · Endpoints: **2/3 exact; `/` is 200 but HTML (not the expected JSON health body)** · Clerk prefix: **consistent with the dev API** · Conflicting env files: **none**.
+- Safe to prebuild/rebuild: **yes** from a config standpoint — with two notes: (1) local branch is behind origin/main (fe1f5e7 is backend-only, so it doesn't block an app build, but merge when convenient), and (2) the uncommitted dev-client-strip config changes are already in the working tree and would be embedded in the next build. No files were modified during this audit.
