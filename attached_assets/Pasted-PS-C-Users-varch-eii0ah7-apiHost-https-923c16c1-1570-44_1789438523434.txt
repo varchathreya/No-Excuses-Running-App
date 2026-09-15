@@ -1,0 +1,76 @@
+PS C:\Users\varch_eii0ah7> $apiHost = "https://923c16c1-1570-447b-89b7-98597853569d-00-2l596q1y069m6.spock.replit.dev"
+>> curl.exe -i "$apiHost/"
+>> curl.exe -i "$apiHost/api/healthz"
+>> curl.exe -i "$apiHost/api/calendar/oauth/status"
+HTTP/1.1 200 OK
+Content-Length: 1333
+Content-Type: text/html
+Date: Tue, 15 Sep 2026 02:15:11 GMT
+Replit-Cluster: spock
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>No Excuses</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  <script src="/artifacts/no-excuses/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&transform.reactCompiler=true&unstable_transformProfile=hermes-stable" defer></script></body>
+</html>
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Content-Length: 15
+Content-Type: application/json; charset=utf-8
+Date: Tue, 15 Sep 2026 02:15:12 GMT
+Etag: W/"f-VaSQ4oDUiZblZNAEkkN+sX+q3Sg"
+Replit-Cluster: spock
+X-Clerk-Auth-Reason: dev-browser-missing
+X-Clerk-Auth-Status: signed-out
+X-Powered-By: Express
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+
+{"status":"ok"}HTTP/1.1 401 Unauthorized
+Access-Control-Allow-Origin: *
+Content-Length: 54
+Content-Type: application/json; charset=utf-8
+Date: Tue, 15 Sep 2026 02:15:12 GMT
+Etag: W/"36-GTHBXS2DSbLEpLC8mXinX5lLDS4"
+Replit-Cluster: spock
+X-Clerk-Auth-Reason: dev-browser-missing
+X-Clerk-Auth-Status: signed-out
+X-Powered-By: Express
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+X-Robots-Tag: none, noindex, noarchive, nofollow, nositelinkssearchbox, noimageindex
+
+{"code":"AUTH_REQUIRED","message":"Sign in required."}
+PS C:\Users\varch_eii0ah7>
