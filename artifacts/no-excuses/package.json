@@ -61,7 +61,6 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "expo-dev-client": "~57.0.18",
     "expo-intent-launcher": "~57.0.1",
     "react-native-maps": "1.27.2",
     "react-native-webview": "^13.16.1",
