@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   disconnectCalendarOAuth,
   getCalendarPreview,
@@ -21,7 +21,8 @@ import { getAuthorization } from '@/lib/api-auth';
 import { getAuthErrorCode, linkCalendar, runAuthorized } from '@/lib/auth-flow';
 import { useAuth } from '@clerk/expo';
 
-const CALENDAR_PREVIEW_KEY = ['/api/calendar/preview', { days: 42 }] as const;
+const CALENDAR_PREVIEW_DAYS = 56;
+const CALENDAR_PREVIEW_KEY = ['/api/calendar/preview', { days: CALENDAR_PREVIEW_DAYS }] as const;
 
 function calendarDateFor(item: Workout) {
   const now = new Date();
@@ -132,7 +133,7 @@ export default function Schedule() {
   const [linkingCalendar, setLinkingCalendar] = useState(false);
   const [linkingCalendarError, setLinkingCalendarError] = useState<string | null>(null);
   const calendar = useGetCalendarPreview(
-    { days: 42 },
+    { days: CALENDAR_PREVIEW_DAYS },
     {
       query: {
         queryKey: [...CALENDAR_PREVIEW_KEY],
@@ -202,7 +203,7 @@ export default function Schedule() {
         onConnected: async () => {
           const authorization = await getAuthorization(getToken);
           if (!authorization) return;
-          const freshPreview = await getCalendarPreview({ days: 42 }, { headers: authorization });
+           const freshPreview = await getCalendarPreview({ days: CALENDAR_PREVIEW_DAYS }, { headers: authorization });
           queryClient.setQueryData([...CALENDAR_PREVIEW_KEY], freshPreview);
         },
       });
@@ -272,10 +273,10 @@ export default function Schedule() {
     }, 30000);
     return () => clearInterval(interval);
   }, [calendar.refetch, networkAvailable]);
-  return <Screen><Header eyebrow="YOUR MONTH" title="Schedule" />
-    <View style={local.weekTabs}>{[1, 2, 3, 4].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</View>
-<View style={[local.notice, { backgroundColor: colors.card }]}>
-       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{offlineMode ? 'Offline mode is on. Calendar actions are disabled.' : !isOnline ? 'No internet connection. Calendar will resume when you reconnect.' : authMismatch ? 'Calendar preview is unavailable' : calendar.isLoading ? 'Loading your next 42 days…' : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
+  return <Screen><Header eyebrow="YOUR PLAN" title="Schedule" />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={local.weekTabs}>{[1, 2, 3, 4, 5, 6, 7, 8].map((value) => <Button key={value} label={`Week ${value}`} secondary={week !== value} onPress={() => setWeek(value)} />)}</ScrollView>
+       <View style={[local.notice, { backgroundColor: colors.card }]}>
+       <View style={local.accountRow}><Feather name="calendar" size={20} color={colors.primary} /><View style={{ flex: 1 }}><Text style={[local.noticeTitle, { color: colors.foreground }]}>{calendar.data?.connected ? calendar.data.calendarName : 'Connect Google Calendar'}</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{offlineMode ? 'Offline mode is on. Calendar actions are disabled.' : !isOnline ? 'No internet connection. Calendar will resume when you reconnect.' : authMismatch ? 'Calendar preview is unavailable' : calendar.isLoading ? `Loading your next ${CALENDAR_PREVIEW_DAYS} days…` : calendar.data?.connected ? `${calendar.data.events.length} events visible from your connected calendar` : 'Grant read-only access to sync booked workout times'}</Text></View></View>
       {authMismatch && (
         <Text style={[styles.muted, { color: colors.destructive, lineHeight: 18 }]}>This build of No Excuses and the server are using different Clerk environments. Rebuild the APK with the matching Clerk key, then sign in again.</Text>
       )}
@@ -360,5 +361,5 @@ const local = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 7 },
   smallButton: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 7 },
   smallText: { fontFamily: 'Inter_700Bold', fontSize: 10 },
-  weekTabs: { flexDirection: 'row', gap: 6, marginBottom: 18 },
+  weekTabs: { flexDirection: 'row', gap: 6, marginBottom: 18, paddingRight: 20 },
 });

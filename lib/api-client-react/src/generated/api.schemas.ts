@@ -62,7 +62,7 @@ export type UnauthorizedResponse = AuthError;
 export type GetCalendarPreviewParams = {
 /**
  * @minimum 1
- * @maximum 42
+ * @maximum 56
  */
 days?: number;
 };

@@ -143,7 +143,7 @@ calendarRouter.get("/calendar/preview", async (req, res): Promise<void> => {
     return;
   }
   const rawDays = parsed.data.days ?? 7;
-  const days = Math.min(42, Math.max(1, rawDays));
+  const days = Math.min(56, Math.max(1, rawDays));
   const window = rfc3339(days);
   try {
     const token = await getCalendarAccessToken(userId);

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState as RNAppState, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { createInitialWorkouts, type WorkoutSessionKind } from '@/constants/workoutPlan';
 
 export type Workout = {
   id: string;
@@ -9,6 +10,7 @@ export type Workout = {
   week: number;
   title: string;
   type: 'walk' | 'run' | 'rehab';
+  kind: WorkoutSessionKind;
   duration: string;
   focus: string;
   scheduled: boolean;
@@ -20,45 +22,33 @@ export type Activity = { id: string; startedAt: number; endedAt: number; distanc
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
 export function activeWorkoutWeek(workouts: Workout[]) {
-  return workouts.find((item) => item.scheduled && !item.completed)?.week ?? 4;
+  return workouts.find((item) => item.scheduled && !item.completed)?.week ?? 8;
 }
 export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number) {
   return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7)
     && (week === undefined || activeWeek === undefined || week === activeWeek);
 }
 
-const toolkit = 'Strength toolkit: A-skips, hip circles, walking lunges, single-leg deadlifts, bodyweight squats, clamshells, hip hikes, glute bridges, short-foot doming, toe yoga, calf raises, hip flexor stretch, plantar rolling, calf smashes.';
-const plan: Array<{ title: string; type: Workout['type']; duration: string; focus: string }> = [
-  { title: 'Paced Walking', type: 'walk', duration: '20 min', focus: 'Quick, light feet; increase natural cadence 5–10%.' },
-  { title: 'Strength + Foot Stability', type: 'rehab', duration: '15 min', focus: 'Foot doming and hip stability. ' + toolkit },
-  { title: 'Paced Walking', type: 'walk', duration: '20 min', focus: 'Quick, light feet; increase natural cadence 5–10%.' },
-  { title: 'Strength + Foot Stability', type: 'rehab', duration: '15 min', focus: toolkit },
-  { title: 'Paced Walking', type: 'walk', duration: '20 min', focus: 'Quick, light feet; increase natural cadence 5–10%.' },
-  { title: 'Strength + Foot Stability', type: 'rehab', duration: '15 min', focus: toolkit },
-  { title: 'Rest + Recovery Check', type: 'rehab', duration: '10 min', focus: 'Use the 24-hour rule. Flat ground only this month.' },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '18 min · 1 jog / 2 walk × 6', focus: 'Train-track feet; maintain a slightly wider stance.' },
-  { title: 'Hip Abductor Strength', type: 'rehab', duration: '18 min', focus: 'Clamshells, hip hikes, bridges, and single-leg control.' },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '18 min · 1 jog / 2 walk × 6', focus: 'Train-track feet; maintain a slightly wider stance.' },
-  { title: 'Hip Abductor Strength', type: 'rehab', duration: '18 min', focus: toolkit },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '18 min · 1 jog / 2 walk × 6', focus: 'Train-track feet; maintain a slightly wider stance.' },
-  { title: 'Hip Abductor Strength', type: 'rehab', duration: '18 min', focus: toolkit },
-  { title: 'Rest + Recovery Check', type: 'rehab', duration: '10 min', focus: 'If stiffness persists beyond 24 hours, reduce next intervals by 20%.' },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '20 min · 2 jog / 2 walk × 5', focus: 'Gait automaticity; count backward while keeping form quiet.' },
-  { title: 'Step Length Strength', type: 'rehab', duration: '18 min', focus: 'Land softly under your body. Include calf raises and foot control.' },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '20 min · 2 jog / 2 walk × 5', focus: 'Gait automaticity; count backward while keeping form quiet.' },
-  { title: 'Step Length Strength', type: 'rehab', duration: '18 min', focus: toolkit },
-  { title: 'Walk / Jog Intervals', type: 'run', duration: '20 min · 2 jog / 2 walk × 5', focus: 'Gait automaticity; count backward while keeping form quiet.' },
-  { title: 'Step Length Strength', type: 'rehab', duration: '18 min', focus: toolkit },
-  { title: 'Rest + Recovery Check', type: 'rehab', duration: '10 min', focus: 'Check for joint pain versus normal muscle fatigue.' },
-  { title: 'Easy Jog / Walk', type: 'run', duration: '20 min · 3 jog / 2 walk × 4', focus: 'Minimize vertical bounce; keep your head level and steps quiet.' },
-  { title: 'Four Pillars Review', type: 'rehab', duration: '20 min', focus: 'Review cadence, shorter step length, train-track width, and low bounce.' },
-  { title: 'Easy Jog / Walk', type: 'run', duration: '20 min · 3 jog / 2 walk × 4', focus: 'Minimize vertical bounce; keep your head level and steps quiet.' },
-  { title: 'Four Pillars Review', type: 'rehab', duration: '20 min', focus: toolkit },
-  { title: 'Easy Jog / Walk', type: 'run', duration: '20 min · 3 jog / 2 walk × 4', focus: 'Minimize vertical bounce; keep your head level and steps quiet.' },
-  { title: 'Four Pillars Review', type: 'rehab', duration: '20 min', focus: toolkit },
-  { title: 'Rest + Recovery Check', type: 'rehab', duration: '10 min', focus: 'Celebrate resilient recovery. Keep all sessions flat and level.' },
-];
-const initialWorkouts: Workout[] = plan.map((item, index) => ({ id: String(index + 1), day: index + 1, week: Math.floor(index / 7) + 1, ...item, scheduled: true, completed: false }));
+const initialWorkouts: Workout[] = createInitialWorkouts();
+
+function hydrateWorkouts(saved: string | null): Workout[] {
+  if (!saved) return initialWorkouts;
+  try {
+    const previous = JSON.parse(saved) as Array<Partial<Workout> & { id?: string }>;
+    const previousById = new Map(previous.map((item) => [item.id, item]));
+    return initialWorkouts.map((item) => {
+      const old = previousById.get(item.id);
+      return {
+        ...item,
+        completed: old?.completed ?? item.completed,
+        scheduled: old?.scheduled ?? item.scheduled,
+        alarmSet: old?.alarmSet,
+      };
+    });
+  } catch {
+    return initialWorkouts;
+  }
+}
 
 type AppState = {
   workouts: Workout[];
@@ -79,14 +69,36 @@ const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [offlineMode, setOfflineModeState] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  useEffect(() => { AsyncStorage.getItem('no-excuses-workouts').then((saved) => saved && setWorkouts(JSON.parse(saved))); AsyncStorage.getItem('no-excuses-activities').then((saved) => saved && setActivities(JSON.parse(saved))); }, []);
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem('no-excuses-workouts'),
+      AsyncStorage.getItem('no-excuses-activities'),
+    ]).then(([savedWorkouts, savedActivities]) => {
+      setWorkouts(hydrateWorkouts(savedWorkouts));
+      if (savedActivities) {
+        try {
+          setActivities(JSON.parse(savedActivities));
+        } catch {
+          setActivities([]);
+        }
+      }
+      setHydrated(true);
+    });
+  }, []);
   useEffect(() => {
     AsyncStorage.getItem('no-excuses-offline-mode').then((saved) => saved && setOfflineModeState(saved === 'true'));
   }, []);
-  useEffect(() => { AsyncStorage.setItem('no-excuses-workouts', JSON.stringify(workouts)); }, [workouts]);
-  useEffect(() => { AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities)); }, [activities]);
+  useEffect(() => {
+    if (!hydrated) return;
+    void AsyncStorage.setItem('no-excuses-workouts', JSON.stringify(workouts));
+  }, [hydrated, workouts]);
+  useEffect(() => {
+    if (!hydrated) return;
+    void AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities));
+  }, [activities, hydrated]);
   const setOfflineMode = useCallback((enabled: boolean) => {
     setOfflineModeState(enabled);
     void AsyncStorage.setItem('no-excuses-offline-mode', String(enabled));

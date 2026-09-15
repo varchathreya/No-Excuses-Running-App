@@ -32,7 +32,7 @@ export const GetAuthSessionResponse = zod.object({
  * @summary Preview connected calendar events
  */
 export const getCalendarPreviewQueryDaysDefault = 7;
-export const getCalendarPreviewQueryDaysMax = 42;
+export const getCalendarPreviewQueryDaysMax = 56;
 
 
 

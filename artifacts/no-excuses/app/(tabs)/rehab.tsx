@@ -34,6 +34,7 @@ export default function Rehab() {
   const [showUnavailable, setShowUnavailable] = useState(true);
   const workout = workouts.find((item) => item.id === workoutId);
   const unavailable = !!workout && !isWorkoutAvailableToday(workout.day, workout.week, activeWorkoutWeek(workouts));
+  const isRestDay = workout?.kind === 'rest';
   const completedExercises = sets.filter((count) => count >= 3).length;
   const allComplete = completedExercises === exercises.length;
   const current = exercises[active];
@@ -64,6 +65,41 @@ export default function Rehab() {
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, [seconds, started, active]);
+
+  if (isRestDay) {
+    return (
+      <Screen scroll={false}>
+        <View style={[local.restContent, { paddingBottom: insets.bottom + 24 }]}>
+          <Header eyebrow="RECOVERY DAY" title="Full rest" />
+          {workout && (
+            <View style={[local.preview, { backgroundColor: colors.card }]}>
+              <Text style={[local.previewLabel, { color: colors.primary }]}>WEEK {workout.week} · DAY {workout.day}</Text>
+              <Text style={[local.previewTitle, { color: colors.foreground }]}>{workout.title}</Text>
+              <Text style={[styles.muted, { color: colors.mutedForeground }]}>{workout.focus}</Text>
+            </View>
+          )}
+          <View style={[local.restCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[local.restIcon, { backgroundColor: colors.secondary }]}>
+              <Text style={{ color: colors.primary, fontSize: 24 }}>✓</Text>
+            </View>
+            <Text style={[local.playerTitle, { color: colors.foreground }]}>Let the load settle.</Text>
+            <Text style={[styles.muted, { color: colors.mutedForeground }]}>
+              Rest is part of the eight-week progression. Check how your joints feel over the next 24 hours before increasing load.
+            </Text>
+          </View>
+          <Button
+            label="Complete rest day"
+            icon="check-circle"
+            disabled={unavailable}
+            onPress={() => {
+              if (workoutId) completeWorkout(workoutId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }}
+          />
+        </View>
+      </Screen>
+    );
+  }
 
   const selectExercise = (index: number) => {
     if (unavailable) return;
@@ -199,6 +235,9 @@ export default function Rehab() {
 
 const local = StyleSheet.create({
   scroll: { flex: 1 },
+  restContent: { flex: 1, paddingHorizontal: 20 },
+  restCard: { borderRadius: 22, borderWidth: 1, padding: 22, marginBottom: 18, gap: 12 },
+  restIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   content: { flexGrow: 1 },
   preview: { borderRadius: 20, padding: 17, marginBottom: 12 },
   previewLabel: { fontFamily: 'Inter_700Bold', letterSpacing: 1, fontSize: 10 },
