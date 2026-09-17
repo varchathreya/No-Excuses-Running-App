@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AppState as RNAppState, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { createInitialWorkouts, type GaitProtocol, type RehabRoutine, type WorkoutSessionKind } from '@/constants/workoutPlan';
+import { createInitialWorkouts, type GaitProtocol, type RegimenId, type RehabRoutine, type WorkoutSessionKind } from '@/constants/workoutPlan';
 
 export type Workout = {
   id: string;
@@ -11,6 +11,7 @@ export type Workout = {
   title: string;
   type: 'walk' | 'run' | 'rehab';
   kind: WorkoutSessionKind;
+  regimenId: RegimenId;
   duration: string;
   focus: string;
   protocolId?: GaitProtocol;
@@ -20,7 +21,7 @@ export type Workout = {
   alarmSet?: boolean;
 };
 export type RoutePoint = { latitude: number; longitude: number; altitude?: number; accuracy?: number; timestamp: number };
-export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[]; workoutId?: string };
+export type Activity = { id: string; startedAt: number; endedAt: number; distanceMeters: number; elapsedSeconds: number; route: RoutePoint[]; workoutId?: string; regimenId?: RegimenId };
 export type RehabSetLog = { set: number; reps: number; weight: string };
 export type RehabLog = {
   id: string;
@@ -31,38 +32,82 @@ export type RehabLog = {
   completedAt: number;
 };
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-export function workoutWeekdayIndex(day: number) { return (day - 1) % 7; }
+export function dateKeyFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+export function dateFromKey(value: string | null | undefined) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+export function workoutDate(day: number, startDate?: string | null) {
+  const start = dateFromKey(startDate);
+  if (!start) return null;
+  const date = new Date(start);
+  date.setDate(date.getDate() + day - 1);
+  return date;
+}
+export function workoutWeekdayIndex(day: number, startDate?: string | null) {
+  const date = workoutDate(day, startDate);
+  if (date) return (date.getDay() + 6) % 7;
+  return (day - 1) % 7;
+}
+export function workoutWeekdayName(day: number, startDate?: string | null) {
+  return WEEKDAYS[workoutWeekdayIndex(day, startDate)];
+}
+export function workoutDateLabel(day: number, startDate?: string | null) {
+  const date = workoutDate(day, startDate);
+  return date
+    ? date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : null;
+}
 export function activeWorkoutWeek(workouts: Workout[]) {
   return workouts.find((item) => item.scheduled && !item.completed)?.week ?? 8;
 }
-export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number) {
-  return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7)
+export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number, startDate?: string | null) {
+  const plannedDate = workoutDate(day, startDate);
+  const matchesDate = plannedDate
+    ? dateKeyFromDate(plannedDate) === dateKeyFromDate(new Date())
+    : workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7);
+  return matchesDate
     && (week === undefined || activeWeek === undefined || week === activeWeek);
 }
 
-const initialWorkouts: Workout[] = createInitialWorkouts();
+type SavedWorkout = Partial<Workout> & { id?: string };
+type WorkoutsByRegimen = Partial<Record<RegimenId, Workout[]>>;
 
-function hydrateWorkouts(saved: string | null): Workout[] {
+function hydrateWorkouts(saved: SavedWorkout[] | null, regimenId: RegimenId): Workout[] {
+  const initialWorkouts = createInitialWorkouts(regimenId);
   if (!saved) return initialWorkouts;
+  const previousById = new Map(saved.map((item) => [item.id, item]));
+  return initialWorkouts.map((item) => {
+    const old = previousById.get(item.id);
+    return {
+      ...item,
+      completed: old?.completed ?? item.completed,
+      scheduled: old?.scheduled ?? item.scheduled,
+      alarmSet: old?.alarmSet,
+    };
+  });
+}
+function parseSavedWorkouts(value: string | null): SavedWorkout[] | null {
+  if (!value) return null;
   try {
-    const previous = JSON.parse(saved) as Array<Partial<Workout> & { id?: string }>;
-    const previousById = new Map(previous.map((item) => [item.id, item]));
-    return initialWorkouts.map((item) => {
-      const old = previousById.get(item.id);
-      return {
-        ...item,
-        completed: old?.completed ?? item.completed,
-        scheduled: old?.scheduled ?? item.scheduled,
-        alarmSet: old?.alarmSet,
-      };
-    });
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as SavedWorkout[] : null;
   } catch {
-    return initialWorkouts;
+    return null;
   }
 }
 
 type AppState = {
   workouts: Workout[];
+  regimenId: RegimenId;
+  startDate: string | null;
+  setRegimen: (regimenId: RegimenId) => void;
+  setStartDate: (startDate: string | null) => void;
   activities: Activity[];
   rehabLogs: RehabLog[];
   scheduleAll: () => void;
@@ -80,7 +125,10 @@ type AppState = {
 };
 const AppContext = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts);
+  const [workouts, setWorkouts] = useState<Workout[]>(() => createInitialWorkouts(1));
+  const [workoutsByRegimen, setWorkoutsByRegimen] = useState<WorkoutsByRegimen>({});
+  const [regimenId, setRegimenIdState] = useState<RegimenId>(1);
+  const [startDate, setStartDateState] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [rehabLogs, setRehabLogs] = useState<RehabLog[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -89,10 +137,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem('no-excuses-workouts'),
+      AsyncStorage.getItem('no-excuses-workouts-by-regimen'),
       AsyncStorage.getItem('no-excuses-activities'),
       AsyncStorage.getItem('no-excuses-rehab-logs'),
-    ]).then(([savedWorkouts, savedActivities, savedRehabLogs]) => {
-      setWorkouts(hydrateWorkouts(savedWorkouts));
+      AsyncStorage.getItem('no-excuses-regimen'),
+      AsyncStorage.getItem('no-excuses-start-date'),
+    ]).then(([savedWorkouts, savedWorkoutsByRegimen, savedActivities, savedRehabLogs, savedRegimen, savedStartDate]) => {
+      const storedRegimen: RegimenId = savedRegimen === '2' ? 2 : 1;
+      let parsedByRegimen: WorkoutsByRegimen = {};
+      if (savedWorkoutsByRegimen) {
+        try {
+          const parsed = JSON.parse(savedWorkoutsByRegimen) as Record<string, SavedWorkout[]>;
+          parsedByRegimen = {
+            1: parsed['1'] ? hydrateWorkouts(parsed['1'], 1) : undefined,
+            2: parsed['2'] ? hydrateWorkouts(parsed['2'], 2) : undefined,
+          };
+        } catch {
+          parsedByRegimen = {};
+        }
+      }
+      if (!parsedByRegimen[1]) {
+        const legacyWorkouts = parseSavedWorkouts(savedWorkouts);
+        if (legacyWorkouts) parsedByRegimen[1] = hydrateWorkouts(legacyWorkouts, 1);
+      }
+      const currentSaved = parsedByRegimen[storedRegimen];
+      setWorkoutsByRegimen(parsedByRegimen);
+      setRegimenIdState(storedRegimen);
+      setWorkouts(currentSaved ?? createInitialWorkouts(storedRegimen));
+      setStartDateState(savedStartDate && dateFromKey(savedStartDate) ? savedStartDate : null);
       if (savedActivities) {
         try {
           setActivities(JSON.parse(savedActivities));
@@ -119,6 +191,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, workouts]);
   useEffect(() => {
     if (!hydrated) return;
+    const merged = { ...workoutsByRegimen, [regimenId]: workouts };
+    void AsyncStorage.setItem('no-excuses-workouts-by-regimen', JSON.stringify(merged));
+  }, [hydrated, regimenId, workouts, workoutsByRegimen]);
+  useEffect(() => {
+    if (!hydrated) return;
     void AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities));
   }, [activities, hydrated]);
   useEffect(() => {
@@ -129,6 +206,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOfflineModeState(enabled);
     void AsyncStorage.setItem('no-excuses-offline-mode', String(enabled));
   }, []);
+  const setStartDate = useCallback((nextStartDate: string | null) => {
+    setStartDateState(nextStartDate);
+    void AsyncStorage.setItem('no-excuses-start-date', nextStartDate ?? '');
+  }, []);
+  const setRegimen = useCallback((nextRegimen: RegimenId) => {
+    if (nextRegimen === regimenId) return;
+    setWorkoutsByRegimen((previous) => ({ ...previous, [regimenId]: workouts }));
+    setWorkouts(workoutsByRegimen[nextRegimen] ?? createInitialWorkouts(nextRegimen));
+    setRegimenIdState(nextRegimen);
+    void AsyncStorage.setItem('no-excuses-regimen', String(nextRegimen));
+  }, [regimenId, workouts, workoutsByRegimen]);
   const checkConnectivity = useCallback(async () => {
     if (offlineMode) {
       setIsOnline(false);
@@ -179,7 +267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
-    workouts, activities, rehabLogs,
+    workouts, activities, rehabLogs, regimenId, startDate, setRegimen, setStartDate,
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
@@ -192,7 +280,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOfflineMode,
     completedCount: workouts.filter((item) => item.completed).length,
     totalMiles: activities.reduce((sum, activity) => sum + activity.distanceMeters / 1609.34, 0),
-  }), [workouts, activities, rehabLogs, offlineMode, isOnline, setOfflineMode]);
+  }), [workouts, activities, rehabLogs, regimenId, startDate, setRegimen, setStartDate, offlineMode, isOnline, setOfflineMode]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 export function useApp() { const context = useContext(AppContext); if (!context) throw new Error('useApp must be used inside AppProvider'); return context; }
