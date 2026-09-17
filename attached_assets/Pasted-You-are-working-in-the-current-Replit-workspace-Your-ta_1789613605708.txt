@@ -1,0 +1,69 @@
+You are working in the current Replit workspace. Your task is to preserve the exact current Replit repository state in GitHub before any synchronization with the local Windows repository at C:\NE9.
+
+Do not modify application functionality.
+Do not run Expo prebuild.
+Do not run expo prebuild --clean.
+Do not modify or print secrets.
+Do not force-push.
+Do not reset, clean, overwrite, or delete repository files.
+
+First verify the repository location:
+
+1. Print the current working directory.
+2. Run git rev-parse --show-toplevel.
+3. Run git status --short.
+4. Run git branch --show-current.
+5. Run git remote -v.
+6. Run git log --oneline --decorate -n 10.
+
+If this is not the expected Replit repository, stop and report that fact.
+
+Confirm that the GitHub remote is configured. Do not guess or invent a remote URL. If the remote is missing or points to a different repository than expected, stop and report it without changing anything.
+
+Create a preservation branch named:
+
+sync/replit-current-YYYYMMDD
+
+Use the current date in YYYYMMDD format.
+
+If there are uncommitted changes:
+
+1. Review git status --short.
+2. Stage the current intended source, configuration, package, lockfile, and application changes.
+3. Do not stage:
+   - .env
+   - .env.*
+   - credentials
+   - tokens
+   - private keys
+   - *.keystore
+   - *.jks
+   - node_modules
+   - build output
+4. Run git diff --cached --name-status.
+5. If any secret or local-only file is staged, unstage it before continuing.
+6. Commit with:
+   checkpoint: preserve current Replit implementation
+
+If there are no uncommitted changes, still create the preservation branch and record the current commit.
+
+Push the branch to GitHub:
+
+git push -u origin sync/replit-current-YYYYMMDD
+
+Do not push directly to main or master.
+
+If pushing fails because Git authentication is missing, stop and report the exact non-secret error. Do not ask me to paste a token, password, or private key.
+
+At the end, report:
+
+- repository root
+- current branch before the operation
+- preservation branch name
+- commit hash
+- whether uncommitted Replit changes were included
+- files intentionally excluded
+- push result
+- any warnings
+
+Do not begin local C:\NE9 synchronization from this prompt.
