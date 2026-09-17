@@ -1,0 +1,23 @@
+env: load .env.local
+env: export EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY EXPO_PUBLIC_DOMAIN EXPO_PUBLIC_API_URL
+Starting project at C:\NE9\artifacts\no-excuses
+Logs: C:\NE9\artifacts\no-excuses\.expo\dev\logs\start.log
+React Compiler enabled
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+Waiting on http://localhost:8082
+
+An update for expo is available: 57.0.21 → ~57.0.22
+18 other packages may need updating. Run npx expo install --check for details.
+Logs for your project will appear below.
+Android Bundled 24284ms artifacts\no-excuses\node_modules\expo-router\entry.js (2357 modules)
+ WARN  Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview
+Android Bundled 1116ms artifacts\no-excuses\node_modules\expo-router\entry.js (1 module)
+ WARN  Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview
+Android Bundled 56ms artifacts\no-excuses\node_modules\expo-router\entry.js (1 module)
+ WARN  Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview
+Android Bundled 5159ms artifacts\no-excuses\node_modules\expo-router\entry.js (1 module)
+ WARN  Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview
+Android Bundled 61ms artifacts\no-excuses\node_modules\expo-router\entry.js (1 module)
+ WARN  Clerk: Clerk has been loaded with development keys. Development instances have strict usage limits and should not be used when deploying your application to production. Learn more: https://clerk.com/docs/deployments/overview
