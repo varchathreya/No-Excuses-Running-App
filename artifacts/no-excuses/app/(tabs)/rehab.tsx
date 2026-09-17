@@ -517,7 +517,7 @@ const local = StyleSheet.create({
   playerEyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.3, fontSize: 10 },
   playerTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, marginVertical: 10 },
   segmentRow: { flexDirection: 'row', gap: 6, marginTop: 18 },
-  segment: { flex: 1, height: 10, borderWidth: 1, borderStyle: 'dashed', borderRadius: 4, padding: 2 },
+  segment: { flex: 1, height: 10, borderWidth: 1, borderStyle: 'solid', borderRadius: 4, padding: 2 },
   segmentFill: { flex: 1, borderRadius: 2 },
   timer: { width: TIMER_SIZE, height: TIMER_SIZE, alignSelf: 'center', marginVertical: 20, alignItems: 'center', justifyContent: 'center' },
   timerRing: { position: 'absolute' },
