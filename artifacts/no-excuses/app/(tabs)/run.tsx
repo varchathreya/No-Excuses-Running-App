@@ -57,9 +57,6 @@ export default function Run() {
     && !item.completed
     && item.type !== 'rehab'
      && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
-  const linkedWorkout = linkedWorkoutId ? workouts.find((item) => item.id === linkedWorkoutId) : undefined;
-  const minimumRunSeconds = linkedWorkout?.type === 'run' ? linkedWorkout.minimumDurationSeconds ?? null : null;
-
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -73,6 +70,8 @@ export default function Run() {
   const [showWrongDay, setShowWrongDay] = useState(wrongDay);
   const [ignoreRequestedWorkout, setIgnoreRequestedWorkout] = useState(false);
   const [showStartChoice, setShowStartChoice] = useState(false);
+  const linkedWorkout = linkedWorkoutId ? workouts.find((item) => item.id === linkedWorkoutId) : undefined;
+  const minimumRunSeconds = linkedWorkout?.type === 'run' ? linkedWorkout.minimumDurationSeconds ?? null : null;
   const watch = useRef<Location.LocationSubscription | null>(null);
   const startedAt = useRef(0);
   const pointsRef = useRef<RoutePoint[]>([]);
@@ -466,6 +465,9 @@ const local = StyleSheet.create({
   metric: { flex: 1 },
   metricLabel: { fontFamily: 'Inter_700Bold', letterSpacing: 1, fontSize: 10 },
   metricValue: { fontFamily: 'Inter_700Bold', fontSize: 20, marginTop: 5 },
+  minimumTime: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 16, marginTop: 16 },
+  minimumTimeCopy: { gap: 4 },
+  minimumTimeValue: { fontFamily: 'Inter_700Bold', fontSize: 30, letterSpacing: -1 },
   completedCard: { borderRadius: 24, padding: 20, marginBottom: 14 },
   completedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   completedTitle: { fontFamily: 'Inter_700Bold', fontSize: 24, marginTop: 6 },
