@@ -26,6 +26,7 @@ export default function TabLayout() {
       <Tabs.Screen name="run" options={{ title: 'Run', tabBarIcon: ({ color }) => <Feather name="navigation" size={21} color={color} /> }} />
       <Tabs.Screen name="rehab" options={{ title: 'Rehab', tabBarIcon: ({ color }) => <Feather name="activity" size={21} color={color} /> }} />
       <Tabs.Screen name="progress" options={{ title: 'Progress', tabBarIcon: ({ color }) => <Feather name="trending-up" size={21} color={color} /> }} />
+      <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: ({ color }) => <Feather name="settings" size={21} color={color} /> }} />
     </Tabs>
   );
 }

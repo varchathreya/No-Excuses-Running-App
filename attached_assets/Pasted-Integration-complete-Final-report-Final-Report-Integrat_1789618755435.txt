@@ -1,0 +1,37 @@
+Integration complete. Final report:
+
+## Final Report — Integration Branch
+
+**Local filesystem backup:** `C:\NE9-backup-20260916-210937` (robocopy exit 1 = success, 1.45 GB / 1673 files; `debug.keystore` + `.env.local` verified inside)
+
+**Branches / commits**
+| Role | Branch | Commit |
+|---|---|---|
+| Local OpenCode preserve | `preserve/local-opencode-20260916` | `9e56109f227a897025ee7eda2677546f92ca2312` |
+| Replit preserve | `origin/sync/replit-current-20260916` | `0e70e7a848af5da9e6a5c59aaf9280c74e812b90` |
+| GitHub primary | `origin/main` (`main`) | `5048d6de7311072a7b62ed373dd6ca1ad99a996c` |
+| Integration | `integrate/local-and-replit-20260916` | `9781e9091cf356c0773130fa44b28edf00d53a31` |
+
+**Merge results (Phase E/F):** 0 conflicts.
+- `git merge --no-ff origin/main` → *Already up to date* (recorded no-op; main is an ancestor).
+- `git merge --no-ff origin/sync/replit-current-20260916` → clean, +2 files (`attached_assets/*.txt` doc commits `e0c78b0`, `0e70e7a`).
+- `git merge --no-ff preserve/local-opencode-20260916` → clean, +2726/−3193 (dev-client config, scripts, lockfile/workspace).
+- Conflicted files: none.
+
+**Validation (Phase G), all on the integration branch:**
+- `git status` – clean except unstaged pre-existing `artifacts/no-excuses/fresh.err.log` (diagnostic crash log; left untouched, not part of integration).
+- `git diff --check` on committed content – only cosmetic trailing-whitespace warnings in Replit's pasted `attached_assets/*.txt` docs (preserved verbatim; source/config clean).
+- `pnpm install --frozen-lockfile` – OK (exit 0).
+- `pnpm run typecheck` – PASS (all 4 workspace projects).
+- `pnpm run android:verify` – **`RESULT: preflight PASS (24 passed, 0 warning(s), 0 failure(s))`**.
+- expo-dev-client – present & resolvable (installed `57.0.19`; `app.json` plugin PASS).
+- Android project + `debug.keystore` intact; signing identity PASS (matches known backup).
+- Feature markers confirmed in merged source: 56-day plan, isometric (Wk 1–4) / HSR (Wk 5–8) rehab, rehab history, rest timer (120 s) + skip, editable reps, Clerk, Google Calendar, alarm, GPS/offline, eight rest days, planned-workout gating. Local-only files present: `.env.local`, `android/`, `debug.keystore`.
+
+**Push (Phase H):** `git push -u origin integrate/local-and-replit-20260916` → new branch created on GitHub; post-push fetch confirms remote == local `9781e90...`. `main`/`master` untouched, no force-push. No PR opened (not requested).
+
+**Unresolved concerns / warnings:**
+- pnpm v9/v12 dual-binary quirk: preflight resolves WinGet pnpm 12.3.4 while the shell uses nvm pnpm 9.15.9; each `android:verify` may churn `node_modules`. Last two runs passed; latent `ERR_PNPM_IGNORED_BUILDS` risk remains if a full v12 reinstall triggers again.
+- `pnpm-workspace.yaml` retains the placeholder `allowBuilds` block (browser-tabs-lock / core-js / esbuild = `"set this to true or false"`); left as-is since validation passes.
+- Replit `attached_assets/*.txt` docs carry trailing whitespace (cosmetic; preserved deliberately).
+- Replit's pasted verify log records an old `ERR_PNPM_PACKAGE_MANAGER_SYMLINK_FAILED` (symlink access-denied) from a prior Replit-side run — historical log content, not the current state; current local Android verification passes all 24 checks.

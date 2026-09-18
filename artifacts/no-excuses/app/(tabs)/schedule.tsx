@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { activeWorkoutWeek, isWorkoutAvailableToday, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, isWorkoutAvailableToday, useApp, workoutDateLabel, workoutWeekdayName, Workout, workoutWeekdayIndex, workoutDate } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,7 +24,12 @@ import { useAuth } from '@clerk/expo';
 const CALENDAR_PREVIEW_DAYS = 56;
 const CALENDAR_PREVIEW_KEY = ['/api/calendar/preview', { days: CALENDAR_PREVIEW_DAYS }] as const;
 
-function calendarDateFor(item: Workout) {
+function calendarDateFor(item: Workout, startDate?: string | null) {
+  const plannedDate = workoutDate(item.day, startDate);
+  if (plannedDate) {
+    plannedDate.setHours(6, 0, 0, 0);
+    return { start: plannedDate, end: new Date(plannedDate.getTime() + 30 * 60000) };
+  }
   const now = new Date();
   const monday = new Date(now);
   const day = now.getDay() || 7;
@@ -34,20 +39,20 @@ function calendarDateFor(item: Workout) {
   return { start: monday, end };
 }
 
-function openCalendar(item: Workout) {
-  const { start, end } = calendarDateFor(item);
+function openCalendar(item: Workout, startDate?: string | null) {
+  const { start, end } = calendarDateFor(item, startDate);
   const format = (date: Date) => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-  const details = `${item.focus}\n\nNo Excuses · Week ${item.week} · ${WEEKDAYS[workoutWeekdayIndex(item.day)]}\nWorkout marker: NE-${item.id}`;
+  const details = `${item.focus}\n\nNo Excuses · Week ${item.week} · ${workoutWeekdayName(item.day, startDate)}${workoutDateLabel(item.day, startDate) ? ` · ${workoutDateLabel(item.day, startDate)}` : ''}\nWorkout marker: NE-${item.id}`;
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`No Excuses · W${item.week}D${item.day} · ${item.title}`)}&dates=${format(start)}/${format(end)}&details=${encodeURIComponent(details)}`;
   Linking.openURL(url).catch(() => Alert.alert('Google Calendar unavailable', 'Install Google Calendar or open this link in your mobile browser.'));
 }
 
-async function openAlarm(item: Workout) {
+async function openAlarm(item: Workout, startDate?: string | null) {
   if (Platform.OS !== 'android') {
     Alert.alert('Android alarm', 'Alarm setup opens the native Android Clock app on an Android device.');
     return false;
   }
-  const androidDay = ((workoutWeekdayIndex(item.day) + 1) % 7) + 1;
+  const androidDay = ((workoutWeekdayIndex(item.day, startDate) + 1) % 7) + 1;
   try {
     await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
       extra: {
@@ -78,10 +83,10 @@ function formatEventTime(start?: string) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function WorkoutRow({ item, booked, calendarStart, networkAvailable, onAlarmRequested, onStartRequested }: { item: Workout; booked: boolean; calendarStart?: string; networkAvailable: boolean; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
+function WorkoutRow({ item, startDate, booked, calendarStart, networkAvailable, onAlarmRequested, onStartRequested }: { item: Workout; startDate?: string | null; booked: boolean; calendarStart?: string; networkAvailable: boolean; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
   const colors = useColors();
   const { setAlarmChecked } = useApp();
-  const weekday = WEEKDAYS[workoutWeekdayIndex(item.day)];
+  const weekday = workoutWeekdayName(item.day, startDate);
   const alarmChecked = !!item.alarmSet;
   const alarmPress = () => {
     if (alarmChecked) {
@@ -99,7 +104,7 @@ function WorkoutRow({ item, booked, calendarStart, networkAvailable, onAlarmRequ
         <View style={{ flex: 1 }}>
           <View style={local.titleLine}><Text style={[local.rowTitle, { color: colors.foreground }]}>{item.title}</Text>{item.completed && <Pill color={colors.accent}>DONE</Pill>}</View>
           <Text style={[styles.muted, { color: colors.primary }]}>{item.duration}</Text>
-          <Text style={[styles.muted, { color: colors.mutedForeground }]}>Week {item.week}</Text>
+           <Text style={[styles.muted, { color: colors.mutedForeground }]}>Week {item.week}{workoutDateLabel(item.day, startDate) ? ` · ${workoutDateLabel(item.day, startDate)}` : ''}</Text>
         </View>
       </View>
       <View style={local.actions}>
@@ -109,7 +114,7 @@ function WorkoutRow({ item, booked, calendarStart, networkAvailable, onAlarmRequ
             <Text style={[local.smallText, { color: colors.background }]}>{formatEventTime(calendarStart)}</Text>
           </View>
         ) : (
-          <Pressable testID={`book-${item.id}`} disabled={!networkAvailable} onPress={() => openCalendar(item)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border, opacity: networkAvailable ? 1 : 0.42 }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : networkAvailable ? 'Book' : 'Offline'}</Text></Pressable>
+          <Pressable testID={`book-${item.id}`} disabled={!networkAvailable} onPress={() => openCalendar(item, startDate)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border, opacity: networkAvailable ? 1 : 0.42 }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : networkAvailable ? 'Book' : 'Offline'}</Text></Pressable>
         )}
         <Pressable testID={`start-${item.id}`} onPress={() => onStartRequested(item)} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
         <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityLabel={alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} accessibilityHint={alarmChecked ? 'Uncheck here if you remove it in Clock' : undefined} accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={[local.smallButton, { borderColor: alarmChecked ? colors.accent : colors.border }]}>
@@ -125,7 +130,7 @@ export default function Schedule() {
   const colors = useColors();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { workouts, setAlarmChecked, networkAvailable, offlineMode, isOnline } = useApp();
+  const { workouts, startDate, setAlarmChecked, networkAvailable, offlineMode, isOnline } = useApp();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const [week, setWeek] = useState(1);
   const [pendingStart, setPendingStart] = useState<Workout | null>(null);
@@ -148,7 +153,7 @@ export default function Schedule() {
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
   const navigateToWorkout = (item: Workout) => {
-    if (!isWorkoutAvailableToday(item.day, item.week, activeWorkoutWeek(workouts))) {
+    if (!isWorkoutAvailableToday(item.day, item.week, activeWorkoutWeek(workouts), startDate)) {
       setPendingStart(item);
       return;
     }
@@ -250,7 +255,7 @@ export default function Schedule() {
     );
   };
   const requestAlarm = async (item: Workout) => {
-    const launched = await openAlarm(item);
+    const launched = await openAlarm(item, startDate);
     if (launched) pendingAlarm.current = item;
   };
   useEffect(() => {
@@ -316,11 +321,11 @@ export default function Schedule() {
     {visible.map((item) => {
       const marker = `W${item.week}D${item.day}`;
       const calendarEvent = calendar.data?.events.find((event) => event.summary.includes(marker));
-        return <WorkoutRow key={item.id} item={item} booked={!!calendarEvent} calendarStart={calendarEvent?.start} networkAvailable={networkAvailable} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
+         return <WorkoutRow key={item.id} item={item} startDate={startDate} booked={!!calendarEvent} calendarStart={calendarEvent?.start} networkAvailable={networkAvailable} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
      })}
      <BrandedModal
        visible={!!pendingStart}
-        title={`Please wait until Week ${pendingStart?.week ?? 1}, ${pendingStart ? WEEKDAYS[workoutWeekdayIndex(pendingStart.day)] : ''}`}
+         title={`Please wait until Week ${pendingStart?.week ?? 1}, ${pendingStart ? workoutWeekdayName(pendingStart.day, startDate) : ''}${pendingStart && workoutDateLabel(pendingStart.day, startDate) ? ` · ${workoutDateLabel(pendingStart.day, startDate)}` : ''}`}
         message="This planned session can only be completed during its active plan week and on its scheduled day. You can still review it now."
        onRequestClose={() => setPendingStart(null)}
        primaryLabel="Okay"

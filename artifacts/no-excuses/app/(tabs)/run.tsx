@@ -3,7 +3,7 @@ import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { activeWorkoutWeek, Activity, isWorkoutAvailableToday, RoutePoint, useApp, WEEKDAYS, Workout, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, Activity, isWorkoutAvailableToday, RoutePoint, useApp, workoutWeekdayName, Workout } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import NativeRouteMap from '@/components/NativeRouteMap';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -40,15 +40,15 @@ export default function Run() {
   const colors = useColors();
   const router = useRouter();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
-  const { workouts, saveActivity, activities, completeWorkout } = useApp();
+  const { workouts, startDate, regimenId, saveActivity, activities, completeWorkout } = useApp();
   const requestedWorkout = workouts.find((item) => item.id === workoutId);
   const activeWeek = activeWorkoutWeek(workouts);
-  const wrongDay = !!requestedWorkout && !isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek);
+  const wrongDay = !!requestedWorkout && !isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek, startDate);
   const requestedWorkoutToday = requestedWorkout
     && requestedWorkout.scheduled
     && !requestedWorkout.completed
     && requestedWorkout.type !== 'rehab'
-    && isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek)
+     && isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek, startDate)
     ? requestedWorkout
     : undefined;
   const todayWorkout = requestedWorkoutToday ?? workouts.find((item) =>
@@ -56,8 +56,7 @@ export default function Run() {
     && item.scheduled
     && !item.completed
     && item.type !== 'rehab'
-    && isWorkoutAvailableToday(item.day, item.week, activeWeek));
-
+     && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -71,6 +70,8 @@ export default function Run() {
   const [showWrongDay, setShowWrongDay] = useState(wrongDay);
   const [ignoreRequestedWorkout, setIgnoreRequestedWorkout] = useState(false);
   const [showStartChoice, setShowStartChoice] = useState(false);
+  const linkedWorkout = linkedWorkoutId ? workouts.find((item) => item.id === linkedWorkoutId) : undefined;
+  const minimumRunSeconds = linkedWorkout?.type === 'run' ? linkedWorkout.minimumDurationSeconds ?? null : null;
   const watch = useRef<Location.LocationSubscription | null>(null);
   const startedAt = useRef(0);
   const pointsRef = useRef<RoutePoint[]>([]);
@@ -272,6 +273,7 @@ export default function Run() {
       elapsedSeconds,
       route,
       workoutId: linkedWorkoutId,
+      regimenId,
     };
     saveActivity(activity);
     if (linkedWorkoutId) completeWorkout(linkedWorkoutId);
@@ -295,6 +297,10 @@ export default function Run() {
   const displayedRoute = running ? points : displayedActivity?.route ?? last?.route ?? [];
   const displayedMeters = displayedActivity?.distanceMeters ?? meters;
   const displayedSeconds = displayedActivity?.elapsedSeconds ?? seconds;
+  const minimumTimeRemaining = minimumRunSeconds === null
+    ? null
+    : Math.max(0, minimumRunSeconds - seconds);
+  const minimumTimeComplete = minimumTimeRemaining === 0;
   const averagePace = displayedMeters > 0 && displayedSeconds > 0
     ? displayedSeconds / (displayedMeters / 1000)
     : null;
@@ -351,6 +357,15 @@ export default function Run() {
             <Metric label="TIME" value={timeLabel(seconds)} />
             {linkedWorkoutId && <Metric label="LIVE PACE / KM" value={running ? paceLabel(livePace) : '—'} />}
           </View>
+          {minimumTimeRemaining !== null && (
+            <View style={[local.minimumTime, { borderTopColor: colors.border }]}>
+              <View style={local.minimumTimeCopy}>
+                <Text style={[local.metricLabel, { color: colors.mutedForeground }]}>MINIMUM TIME REMAINING</Text>
+                <Text style={[local.minimumTimeValue, { color: colors.foreground }]}>{timeLabel(minimumTimeRemaining)}</Text>
+              </View>
+              {minimumTimeComplete && <Feather name="check-circle" size={28} color={colors.accent} />}
+            </View>
+          )}
         </View>
       )}
 
@@ -409,7 +424,7 @@ export default function Run() {
 
       <BrandedModal
         visible={showWrongDay}
-         title={`Please wait until Week ${requestedWorkout?.week ?? 1}, ${WEEKDAYS[workoutWeekdayIndex(requestedWorkout?.day ?? 1)]}`}
+         title={`Please wait until Week ${requestedWorkout?.week ?? 1}, ${workoutWeekdayName(requestedWorkout?.day ?? 1, startDate)}`}
         message="This planned session can only be completed on its scheduled day. You can still record an unscheduled run now."
         onRequestClose={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}
         primaryLabel="Okay"
@@ -450,6 +465,9 @@ const local = StyleSheet.create({
   metric: { flex: 1 },
   metricLabel: { fontFamily: 'Inter_700Bold', letterSpacing: 1, fontSize: 10 },
   metricValue: { fontFamily: 'Inter_700Bold', fontSize: 20, marginTop: 5 },
+  minimumTime: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 16, marginTop: 16 },
+  minimumTimeCopy: { gap: 4 },
+  minimumTimeValue: { fontFamily: 'Inter_700Bold', fontSize: 30, letterSpacing: -1 },
   completedCard: { borderRadius: 24, padding: 20, marginBottom: 14 },
   completedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   completedTitle: { fontFamily: 'Inter_700Bold', fontSize: 24, marginTop: 6 },

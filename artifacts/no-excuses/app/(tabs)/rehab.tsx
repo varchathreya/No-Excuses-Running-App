@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen, Header, Button, SectionTitle, styles } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
-import { activeWorkoutWeek, isWorkoutAvailableToday, type RehabLog, type Workout, useApp, WEEKDAYS, workoutWeekdayIndex } from '@/context/AppContext';
+import { activeWorkoutWeek, isWorkoutAvailableToday, type RehabLog, type Workout, useApp, workoutWeekdayName, workoutWeekdayIndex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandedModal } from '@/components/BrandedModal';
 import Svg, { Circle } from 'react-native-svg';
@@ -81,18 +81,18 @@ export default function Rehab() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
-  const { workouts, completeWorkout, rehabLogs, saveRehabLog } = useApp();
+  const { workouts, startDate, completeWorkout, rehabLogs, saveRehabLog } = useApp();
   const scrollRef = useRef<ScrollView>(null);
   const activeWeek = activeWorkoutWeek(workouts);
   const todayIndex = (new Date().getDay() + 6) % 7;
-  const todayWorkout = workouts.find((item) => item.week === activeWeek && workoutWeekdayIndex(item.day) === todayIndex);
+  const todayWorkout = workouts.find((item) => item.week === activeWeek && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
   const workout = workouts.find((item) => item.id === workoutId) ?? todayWorkout;
   const requestedRestDay = !!workoutId && workout?.kind === 'rest';
   const routine = useMemo(
     () => routineForWorkout(workout),
     [workout?.id, workout?.kind, workout?.week, workout?.rehabRoutine],
   );
-  const unavailable = !!workout && !isWorkoutAvailableToday(workout.day, workout.week, activeWeek);
+  const unavailable = !!workout && !isWorkoutAvailableToday(workout.day, workout.week, activeWeek, startDate);
   const isometricRoutine = routine.filter((item): item is IsometricExercise => item.mode === 'isometric');
   const repRoutine = routine.filter((item): item is RepExercise => item.mode === 'reps');
   const [active, setActive] = useState(0);
@@ -282,7 +282,7 @@ export default function Rehab() {
         </View>
         <BrandedModal
           visible={unavailable && showUnavailable}
-          title={`Please wait until Week ${workout.week}, ${WEEKDAYS[workoutWeekdayIndex(workout.day)]}`}
+           title={`Please wait until Week ${workout.week}, ${workoutWeekdayName(workout.day, startDate)}`}
           message="This planned session can only be completed on its scheduled day. You can review the routine now, but its controls stay locked until then."
           onRequestClose={() => setShowUnavailable(false)}
           primaryLabel="Okay"
@@ -517,7 +517,7 @@ const local = StyleSheet.create({
   playerEyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.3, fontSize: 10 },
   playerTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, marginVertical: 10 },
   segmentRow: { flexDirection: 'row', gap: 6, marginTop: 18 },
-  segment: { flex: 1, height: 10, borderWidth: 1, borderStyle: 'dashed', borderRadius: 4, padding: 2 },
+  segment: { flex: 1, height: 10, borderWidth: 1, borderStyle: 'solid', borderRadius: 4, padding: 2 },
   segmentFill: { flex: 1, borderRadius: 2 },
   timer: { width: TIMER_SIZE, height: TIMER_SIZE, alignSelf: 'center', marginVertical: 20, alignItems: 'center', justifyContent: 'center' },
   timerRing: { position: 'absolute' },

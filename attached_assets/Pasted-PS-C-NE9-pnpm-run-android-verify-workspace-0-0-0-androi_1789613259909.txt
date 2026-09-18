@@ -1,0 +1,69 @@
+PS C:\NE9> pnpm run android:verify
+
+> workspace@0.0.0 android:verify C:\NE9
+> pnpm install --frozen-lockfile && node scripts/android-preflight.mjs --typecheck
+
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: -176
+----------------------------------------------------------------------------------------------------------------------
+Progress: resolved 0, reused 151, downloaded 0, added 0, done
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm…
+└─ Done in 119ms
+Done in 2.7s using pnpm v9.15.9
+
+[android:preflight] mode=preflight  cwd=C:\NE9
+
+=== A. Workspace and package consistency ===
+   PASS  running from monorepo root
+   PASS  app package.json: artifacts\no-excuses\package.json exists
+   PASS  pnpm-lock.yaml: pnpm-lock.yaml exists
+   PASS  expo resolvable from app (installed 57.0.21)
+   PASS  expo-router resolvable from app
+   PASS  app package versions are compatible with the installed Expo SDK
+   PASS  expo-dev-client present and resolvable from app (installed 57.0.19)
+
+=== B. Environment-file safety ===
+   PASS  expected env file present: artifacts\no-excuses\.env.local
+   PASS  env variable names valid (3 var(s) named, values never printed)
+   PASS  env file is gitignored
+
+=== C. Native-project safety ===
+   PASS  android/ exists (inspecting, not regenerating)
+   PASS  android/app/build.gradle: artifacts\no-excuses\android\app\build.gradle exists
+   PASS  Android application ID / namespace is com.noexcuses.app
+   PASS  main AndroidManifest.xml: artifacts\no-excuses\android\app\src\main\AndroidManifest.xml exists
+   PASS  required permissions present in AndroidManifest.xml
+   PASS  no-excuses:// deep link scheme present in AndroidManifest.xml
+   PASS  dev-client config present (app.json plugin + resolvable package) for the development profile
+   PASS  android/ is gitignored (expected; not required in git status)
+
+=== D. Dependency reproducibility ===
+   PASS  expo-dev-client resolved from the app package (not from an unrelated root node_modules location)
+   PASS  frozen-install check available via: pnpm run android:verify  (or pass --frozen-install)
+   ... running pnpm run typecheck
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (1236 entries in 10.9s)
+artifacts/mockup-sandbox                 | [WARN] deprecated recharts@2.15.4
+[WARN] 5 deprecated subdependencies found: @xmldom/xmldom@0.8.14, @xmldom/xmldom@0.9.11, crypto-js@4.2.0, uuid@3.4.0, uuid@7.0.3
+Packages: +798 -339
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++------------------------------------
+Progress: resolved 798, reused 1065, downloaded 5, added 798
+Error: ERR_PNPM_PACKAGE_MANAGER_SYMLINK_FAILED
+
+  x installing dependencies
+  `-> Failed to symlink "expo" for importer "artifacts/no-excuses": Failed to create symlink at "C:\\NE9\\artifacts/
+      no-excuses\\node_modules\\expo" to "C:\\NE9\\node_modules/.pnpm\
+      \expo@57.0.21_@babel+core@7._34d77a25f2474e37ecbf1a90331a95d1\\node_modules\\expo": Access is denied. (os error
+      5)
+
+   FAIL  workspace typecheck failed
+
+=== E. Signing and install safety ===
+   PASS  android/app/debug.keystore present
+   PASS  debug.keystore is gitignored
+   PASS  debug.keystore matches the known backup (same signing identity)
+
+RESULT: preflight FAILED (23 passed, 0 warning(s), 1 failure(s))
+ ELIFECYCLE  Command failed with exit code 1.
+PS C:\NE9>
