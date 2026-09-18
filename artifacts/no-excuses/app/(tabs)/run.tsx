@@ -57,6 +57,8 @@ export default function Run() {
     && !item.completed
     && item.type !== 'rehab'
      && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
+  const linkedWorkout = linkedWorkoutId ? workouts.find((item) => item.id === linkedWorkoutId) : undefined;
+  const minimumRunSeconds = linkedWorkout?.type === 'run' ? linkedWorkout.minimumDurationSeconds ?? null : null;
 
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -296,6 +298,10 @@ export default function Run() {
   const displayedRoute = running ? points : displayedActivity?.route ?? last?.route ?? [];
   const displayedMeters = displayedActivity?.distanceMeters ?? meters;
   const displayedSeconds = displayedActivity?.elapsedSeconds ?? seconds;
+  const minimumTimeRemaining = minimumRunSeconds === null
+    ? null
+    : Math.max(0, minimumRunSeconds - seconds);
+  const minimumTimeComplete = minimumTimeRemaining === 0;
   const averagePace = displayedMeters > 0 && displayedSeconds > 0
     ? displayedSeconds / (displayedMeters / 1000)
     : null;
@@ -352,6 +358,15 @@ export default function Run() {
             <Metric label="TIME" value={timeLabel(seconds)} />
             {linkedWorkoutId && <Metric label="LIVE PACE / KM" value={running ? paceLabel(livePace) : '—'} />}
           </View>
+          {minimumTimeRemaining !== null && (
+            <View style={[local.minimumTime, { borderTopColor: colors.border }]}>
+              <View style={local.minimumTimeCopy}>
+                <Text style={[local.metricLabel, { color: colors.mutedForeground }]}>MINIMUM TIME REMAINING</Text>
+                <Text style={[local.minimumTimeValue, { color: colors.foreground }]}>{timeLabel(minimumTimeRemaining)}</Text>
+              </View>
+              {minimumTimeComplete && <Feather name="check-circle" size={28} color={colors.accent} />}
+            </View>
+          )}
         </View>
       )}
 

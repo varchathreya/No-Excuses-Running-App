@@ -9,6 +9,7 @@ export type WorkoutPlanEntry = {
   type: WorkoutRouteType;
   kind: WorkoutSessionKind;
   duration: string;
+  minimumDurationSeconds?: number;
   focus: string;
   protocolId?: GaitProtocol;
   rehabRoutine?: RehabRoutine;
@@ -25,24 +26,28 @@ const protocolDetails: Record<GaitProtocol, Omit<WorkoutPlanEntry, 'kind' | 'pro
     title: 'Protocol A · Brisk Walk',
     type: 'walk',
     duration: '30 min · 3.0–3.5 mph',
+    minimumDurationSeconds: 30 * 60,
     focus: 'Walk only at a brisk, consistent pace. Maintain upright posture and a purposeful step without shuffling.',
   },
   B: {
     title: 'Protocol B · Ground Run Mechanics',
     type: 'run',
     duration: '30 min · 4 walk / 1 run',
+    minimumDurationSeconds: 30 * 60,
     focus: 'Alternate 4 minutes walking with 1 minute of true ground running. Use a slightly plantarflexed ankle, soft mid-foot contact, and higher step frequency.',
   },
   C: {
     title: 'Protocol C · Progressive Loading',
     type: 'run',
     duration: '40 min · 3 walk / 2 run',
+    minimumDurationSeconds: 40 * 60,
     focus: 'Alternate 3 minutes walking with 2 minutes of ground running at a controlled 3.5–4.5 mph pace. From Week 6, count backward from 100 by 3s during run intervals.',
   },
   D: {
     title: 'Protocol D · High Step Frequency',
     type: 'run',
     duration: '40 min · 2 walk / 3 run',
+    minimumDurationSeconds: 40 * 60,
     focus: 'Alternate 2 minutes walking with 3 minutes of ground running at a controlled 3.5–5.0 mph pace. Prioritize high step frequency and low vertical bounce.',
   },
 };
@@ -153,33 +158,33 @@ const regimenTwoPlan: Record<number, WorkoutPlanEntry> = {
   27: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   28: { title: 'Active · Protocol B', type: 'walk', kind: 'gait', duration: '45 min walk', focus: 'Maintain an automatic, comfortable gait feel.', protocolId: 'B' },
   29: { title: 'Strength · Routine 3', type: 'rehab', kind: 'hsr', duration: '3 × 10 · 20 lb Goblet Squat', focus: 'Control the eccentric descent and keep the knee tracked over the second toe. RPE 6.', rehabRoutine: 3 },
-  30: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '20 min · 1 min walk / 1 min run', focus: 'Initial walk/run intervals at a controlled effort.', protocolId: 'C' },
+  30: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '20 min · 1 min walk / 1 min run', minimumDurationSeconds: 20 * 60, focus: 'Initial walk/run intervals at a controlled effort.', protocolId: 'C' },
   31: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   32: { title: 'Strength · Routine 3', type: 'rehab', kind: 'hsr', duration: '3 × 10 · 20 lb RDLs', focus: 'Control the descent and keep the spine long.', rehabRoutine: 3 },
-  33: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '20 min · 1 min walk / 1 min run', focus: 'Check cadence during the run intervals.', protocolId: 'C' },
+  33: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '20 min · 1 min walk / 1 min run', minimumDurationSeconds: 20 * 60, focus: 'Check cadence during the run intervals.', protocolId: 'C' },
   34: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   35: { title: 'Active · Protocol A', type: 'walk', kind: 'gait', duration: '45 min walk', focus: 'Low-intensity walk at RPE 4.', protocolId: 'A' },
   36: { title: 'Strength · Routine 3', type: 'rehab', kind: 'hsr', duration: '3 × 10 · 25 lb Goblet Squat', focus: 'Control the eccentric descent and keep the knee tracked over the second toe. RPE 7.', rehabRoutine: 3 },
-  37: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '24 min · 1:1 ratio', focus: 'Keep the run intervals controlled at RPE 7.', protocolId: 'C' },
+  37: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '24 min · 1:1 ratio', minimumDurationSeconds: 24 * 60, focus: 'Keep the run intervals controlled at RPE 7.', protocolId: 'C' },
   38: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   39: { title: 'Strength · Routine 3', type: 'rehab', kind: 'hsr', duration: '3 × 12 · 25 lb RDLs', focus: 'Control the descent and keep the spine long.', rehabRoutine: 3 },
-  40: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '24 min · 1:1 ratio', focus: 'Use the toe-in cue only if needed and keep the cadence steady.', protocolId: 'C' },
+  40: { title: 'Interval · Protocol C', type: 'run', kind: 'gait', duration: '24 min · 1:1 ratio', minimumDurationSeconds: 24 * 60, focus: 'Use the toe-in cue only if needed and keep the cadence steady.', protocolId: 'C' },
   41: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   42: { title: 'Active · Protocol A', type: 'walk', kind: 'gait', duration: '50 min walk', focus: 'Low-intensity active recovery walk.', protocolId: 'A' },
   43: { title: 'Strength · Routine 4', type: 'rehab', kind: 'hsr', duration: '3 × 10 · 25 lb Step-ups', focus: 'Keep the hips level and control the step down. RPE 8.', rehabRoutine: 4 },
-  44: { title: 'Build · Protocol D', type: 'run', kind: 'gait', duration: '25 min · 1 min walk / 4 min run', focus: 'Progress the run ratio while keeping a high cadence.', protocolId: 'D' },
+  44: { title: 'Build · Protocol D', type: 'run', kind: 'gait', duration: '25 min · 1 min walk / 4 min run', minimumDurationSeconds: 25 * 60, focus: 'Progress the run ratio while keeping a high cadence.', protocolId: 'D' },
   45: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   46: { title: 'Strength · Routine 4', type: 'rehab', kind: 'hsr', duration: '3 × 10 · 25 lb SLDLs', focus: 'Control the balance and keep the hips level.', rehabRoutine: 4 },
-  47: { title: 'Build · Protocol D', type: 'run', kind: 'gait', duration: '25 min · 1 min walk / 4 min run', focus: 'Keep a high cadence throughout the run intervals.', protocolId: 'D' },
+  47: { title: 'Build · Protocol D', type: 'run', kind: 'gait', duration: '25 min · 1 min walk / 4 min run', minimumDurationSeconds: 25 * 60, focus: 'Keep a high cadence throughout the run intervals.', protocolId: 'D' },
   48: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   49: { title: 'Active · Protocol A', type: 'walk', kind: 'gait', duration: '60 min walk', focus: 'Low-intensity active recovery walk. RPE 5.', protocolId: 'A' },
   50: { title: 'Strength · Routine 4', type: 'rehab', kind: 'hsr', duration: '3 × 8 · 30 lb DBs', focus: 'Master form with a controlled eccentric descent. RPE 8–9.', rehabRoutine: 4 },
-  51: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min · 1 min walk / 4 min run', focus: 'Build toward continuous running while maintaining form.', protocolId: 'D' },
+  51: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min · 1 min walk / 4 min run', minimumDurationSeconds: 30 * 60, focus: 'Build toward continuous running while maintaining form.', protocolId: 'D' },
   52: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
   53: { title: 'Strength · Routine 4', type: 'rehab', kind: 'hsr', duration: '3 × 8 · 30 lb DBs', focus: 'Master the form of the dynamic resistance routine.', rehabRoutine: 4 },
-  54: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min · 1 min walk / 4 min run', focus: 'Use faded feedback and let the movement pattern become automatic.', protocolId: 'D' },
+  54: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min · 1 min walk / 4 min run', minimumDurationSeconds: 30 * 60, focus: 'Use faded feedback and let the movement pattern become automatic.', protocolId: 'D' },
   55: { title: 'Complete Rest Day', type: 'rehab', kind: 'rest', duration: 'Recovery day', focus: 'Complete rest.' },
-  56: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min continuous run if pain-free', focus: 'Run continuously only if pain-free. Stop and return to lower impact if symptoms increase.', protocolId: 'D' },
+  56: { title: 'Mastery · Protocol D', type: 'run', kind: 'gait', duration: '30 min continuous run if pain-free', minimumDurationSeconds: 30 * 60, focus: 'Run continuously only if pain-free. Stop and return to lower impact if symptoms increase.', protocolId: 'D' },
 };
 
 export const REGIMEN_2_PLAN: WorkoutPlanEntry[] = Array.from({ length: 56 }, (_, index) => {

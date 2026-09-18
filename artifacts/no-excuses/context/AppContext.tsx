@@ -13,6 +13,7 @@ export type Workout = {
   kind: WorkoutSessionKind;
   regimenId: RegimenId;
   duration: string;
+  minimumDurationSeconds?: number;
   focus: string;
   protocolId?: GaitProtocol;
   rehabRoutine?: RehabRoutine;
