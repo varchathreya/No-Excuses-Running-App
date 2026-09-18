@@ -1,0 +1,38 @@
+Device restored (airplane mode off, screen-timeout default, app relaunched online — `MainActivity` resumed). Here's the full analysis.
+
+## Offline white-screen analysis — findings
+
+**11-point check**
+
+| # | Question | Evidence |
+|---|---|---|
+| 1 | Installed APK path | `/data/app/com.noexcuses.app-QjdSleW0uzduoEz5VANovA==/base.apk` |
+| 2 | Still debuggable? | **No** — `flags=[ HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]` |
+| 3 | Release variant? | **Yes** — `assembleRelease`, not debug/dev-client |
+| 4 | `assets/index.android.bundle` embedded? | **Yes** (5,444,100 bytes + Hermes `.so`) |
+| 5 | Metro / `exp://` requested? | **No** — 0× `exp://`, 0× `wss://`, 0× devtools strings in bundle; manifest has no `exp+`; no dev-server connect attempts in logcat (`8081` appears once = benign static Clerk-lib string) |
+| 6 | RN mounts before white screen? | **Yes** — `ReactNativeJS: Running "main"` then `ReactSurfaceView` init; JS engine + surface mount, only the *UI tree* is empty |
+| 7 | ClerkProvider waiting indefinitely offline? | Not infinite in all 4 runs, but **highly variable**: Clerk's loaded flip took ~0.5s in one cold run and **~17s** in another; no user-visible feedback while pending |
+| 8 | `ClerkLoaded` blocks whole tree? | **Yes** — `app/_layout.tsx:98` wraps the entire navigation subtree; renders **nothing** until `isLoaded` |
+| 9 | `(tabs)/_layout.tsx` returns null while unloaded? | **Yes** — line 13 `if (!isLoaded) return null` |
+| 10 | `sign-in.tsx` returns null while unloaded? | **Yes** — line 64 |
+| 11 | Fatal exception before first render? | **No** — no `FATAL`/`AndroidRuntime` in any run; no redbox/dev overlay |
+
+## Root cause
+
+**Application bootstrap issue, not packaging.** The auth-gating chain renders *no fallback UI*: `<ClerkLoaded>` (`_layout.tsx:98`) plus the `!isLoaded → return null` guards in `(tabs)/_layout.tsx:13` and `sign-in.tsx:64`. Offline, Clerk must still initialize/sync against `api.clerk.com`; that finishes only after a network-timeout/retry delay that's wildly variable (0.5s vs 17s observed). Until then the navigation tree is `null`, so the screen shows only the **empty window background — white `DayNight.NoActionBar` theme in light mode** (device is light-mode; splash `#111315` is dark but dismisses once fonts load). It is *recoverable*: once Clerk's cached session resolves, the local-first Today screen renders entirely from AsyncStorage with zero network. But during the gap the user sees a stuck-looking white screen.
+
+## Evidence from logcat + device
+
+- Offline cold boot (airplane on, screen forced awake, keyguard dismissed): burst of screenshots at ~2–45s showed **uniform `250,250,250` (unique=2) white frames** alternating with dark-splash frames — the blank window; the same app later rendered the full Today screen (`FRIDAY, SEPTEMBER 18TH … Start session … tab bar`).
+- `Running "main"` at `16:35:58.710`, Clerk "loaded with development keys" at `16:35:59.183` (one run) vs `16:33:40 → 16:33:57` (another run) — the variable gate.
+- Online foreground toggle (airplane on while app running) did **not** white out within 20s — matches a cold-start/relaunch-after-toggle trigger for the user's case.
+- No crash; `Log`, `I`/`W` level only; `Choreographer: Skipped 38 frames` during init (main-thread churn on the slow `armeabi-v7a` device).
+
+## Minimum code change (one file, ~5 lines)
+
+In `app/_layout.tsx`, give the loading state an actual view instead of an empty tree — replace the `<ClerkLoaded>` wrapper with a fallback that renders a branded loading screen (dark `#111315` background + logo/spinner) while `!useAuth().isLoaded`, only mounting the navigation tree when loaded. That covers both the signed-in `(tabs)` path and the `sign-in` path, is online-identical, and eliminates the white window without suppressing warnings, faking auth, or touching the network layer.
+
+Alternatively (bigger behavior delta): keep the native splash up until Clerk `isLoaded` by making `SplashScreen.hideAsync()` depend on it — not required.
+
+Holding here — **no code changes made**, per your instruction. Want me to implement the `_layout.tsx` fallback?
