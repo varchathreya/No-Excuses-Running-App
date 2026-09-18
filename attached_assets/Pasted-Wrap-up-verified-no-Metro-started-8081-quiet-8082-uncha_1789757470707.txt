@@ -1,0 +1,29 @@
+Wrap-up verified: no Metro started (8081 quiet, 8082 unchanged from pre-existing PID 33816), device attached, no tracked drift. Done — here's the report.
+
+## Release APK build complete
+
+**Artifact**
+- Path: `C:\NE11\artifacts\no-excuses\android\app\build\outputs\apk\release\app-release.apk`
+- Size: **53,460,397 bytes (~50.98 MB)**
+- Built: `BUILD SUCCESSFUL in 8m19s`, 826 tasks
+
+**Identity (aapt2 badging)**
+- Package `com.noexcuses.app` (unchanged), `versionCode 1`, `versionName 1.0.0`
+- minSdk 24 / targetSdk 36, label "No Excuses", `native-code: armeabi-v7a`
+
+**Variant confirmation**
+- Gradle task `:app:assembleRelease` + `:app:createBundleReleaseJsAndAssets` (embedded JS at build time, no Metro ever started, no `--dev-client`, no dev script, no EAS CLI)
+- `assets/index.android.bundle` present (5.44 MB) + Hermes `.so` natives; no `exp+`/`exp://` scheme; `MainActivity = com.noexcuses.app.MainActivity`; zero dev-client references in log or manifest
+- Signed with the restored known-good cert (V2, SHA-1 `5e8f16062ea3cd2c4a0d547876baa6f38cabf625`)
+- Only `.apk` output — no AAB produced
+
+**Security audit (req #10)** — clean: bundle contains only the public `pk_test_…` key (×3, publishable by design) and the public API host (×1). No real `sk_test_`/`sk_live_` tokens, no client secrets — the 8 `sk_`/2 `client_secret` regex hits were minifier string-merge artifacts (icon glyph names, worklets/React error fragments), verified by context. `localhost:*` appears exactly once = the benign static Clerk-lib string.
+
+**Warnings (separate from errors)**
+- No errors: the logs' "Error"-name matches were `…checkKotlinGradlePluginConfigurationErrors… SKIPPED` tasks.
+- 211 warning lines, all non-fatal: repeat `CXX5202` (32-bit-only `armeabi-v7a` — deliberate for this device; Play Store 64-bit policy irrelevant for sideload), third-party Kotlin/Java deprecation notes (`expo-modules-core`, `react-native-safe-area-context`, `react-native-webview`, solana-wallet-adapter), javac "deprecated API" notes.
+- Advisory: `expo install --check` flagged patch-version drift (expo 57.0.21 → ~57.0.24 etc.). Left untouched per your minimal-change rule; build succeeded on installed versions.
+
+**Pre-build gates passed:** root typecheck (4/4 projects; app TS6305/TS7006 resolved after `tsc --build`), prebuild clean with package.json unchanged, keystore fingerprint confirmed pre/post.
+
+Not installed, per your instruction. Git: only the playbook and `release-run.log` untracked; zero tracked drift.
