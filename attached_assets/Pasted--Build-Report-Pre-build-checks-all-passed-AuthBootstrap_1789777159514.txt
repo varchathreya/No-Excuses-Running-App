@@ -1,0 +1,20 @@
+## Build Report
+
+**Pre-build checks** — all passed: `AuthBootstrap` loading state present in `_layout.tsx`; mobile typecheck ✓; workspace typecheck 4/4 ✓; `git diff --check` clean ✓; `EXPO_PUBLIC_API_URL/DOMAIN/CLERK_PUBLISHABLE_KEY` all set ✓; android project present and usable → **no prebuild** run (per requirement #2); keystore cert fingerprint intact.
+
+**Build result** — `BUILD SUCCESSFUL in 1m 47s` (826 tasks: 24 executed, 802 up-to-date) — the JS bundle task re-ran and embedded the AuthBootstrap code. Note: the wrapper shell was killed at the harness timeout, but the gradle build itself completed cleanly (log final line `BUILD SUCCESSFUL`, APK fully written); the running `java` PID is just the idle gradle daemon.
+
+**APK** — `C:\NE11\artifacts\no-excuses\android\app\build\outputs\apk\release\app-release.apk`
+- Size: **53,461,689 bytes (~50.99 MB)**
+- Variant: **release** (filename `app-release.apk`; `android:debuggable` absent in manifest/badging)
+- Package: `com.noexcuses.app`, versionName 1.0.0, versionCode 1, minSdk 24, targetSdk 36, armeabi-v7a
+
+**Bundle verification** — `assets/index.android.bundle` embedded (5,445,392 bytes, grew +1,292 vs prior build); Hermes `.so` libs present; new fallback string `"Checking your saved session"` found in the bundle bytecode (AuthBootstrap confirmed inside the APK).
+
+**Signing** — unchanged from previous release APK: V2 cert SHA-1 `5e8f16062ea3cd2c4a0d547876baa6f38cabf625` (verified via `apksigner`).
+
+**No dev-client / no Metro** — manifest activities are only `MainActivity`, crop, webbrowser, Clerk SSO, Google sign-in, Play Core: **no DevLauncherActivity / DevMenuActivity**; **no `exp://`**; no `wss://`; Metro engine port 8081 has no listener; the only node PID (33816, on 8082) predates this session and was untouched.
+
+**Warnings vs errors** — 0 errors. Warnings: gradle's generic deprecation notice (the log's non-fatal batch of 211 CXX/deprecation advisories from the previous full log, unchanged and non-fatal). A benign static string fragment `expo-development-client` and `http://localhost:8081/backup_codes/...` exist in the Hermes string pool (library constants, same as prior audit) — not runtime dev behavior (no matching activities, no `exp://`, Metro not running).
+
+Stopped here. **Not installed.** Awaiting your go-ahead to `adb install -r`.
