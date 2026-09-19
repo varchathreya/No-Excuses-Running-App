@@ -1,0 +1,30 @@
+Review complete. All code paths traced, supporting context verified (token getter default `null` at `custom-fetch.ts:19`, quote query gated `enabled: networkAvailable`, calendar preview gated `enabled: authLoaded && !!isSignedIn && networkAvailable`, persistence writes gated on `hydrated`).
+
+## GO
+
+Release build is approved.
+
+### Blocking issues
+None.
+
+### Non-blocking concerns
+1. **One-frame flash on offline-granted boot** (cosmetic). After the 10 s timeout, `AuthBootstrap` returns the app tree in the same commit that schedules the `grantOfflineSession()` effect. Effects fire *after* paint, so the first committed frame reaches `(tabs)`/`sign-in` with `granted === false`: tabs redirect → `/sign-in`, which momentarily paints the branded "Connect to the internet." locked screen before the grant effect re-renders and bounces back to `/(tabs)`. It self-resolves (no loop) but users may see a brief flash. Easy fix if desired later: move the grant onto `useLayoutEffect` (or a render-time derivation) so it commits before the navigator mounts.
+2. **Sign-out relies on `signOut()` settling** (defensive). In the offline sign-out path, `await signOut()` must reject (not hang) for the marker-clear + revoke to run. Clerk's signOut performs a network call, so offline it should reject with a network error promptly; still, if it ever hung, marker clear/revoke would be delayed until it settled. In-memory revocation is immune (revoke always runs after the awaits). AsyncStorage write failure is also caught — it only affects *persistence* of the `"0"`, never the in-session lockout.
+
+### Reasoning
+- **Race-safety (1):** marker read uses a cancelled flag for unmount; the single production reader resolves before the 10 s window matters. Writes are sequential (`await setItem`). Stale marker reads are harmless because the marker only influences behavior when `!isLoaded`, and any late resolution is ignored once Clerk loads.
+- **Timeout cleanup (2):** `clearTimeout` runs in the effect cleanup, which fires when `isLoaded` flips true — the pending timer cannot leak past a successful Clerk load; clearing an already-fired timer is a no-op.
+- **No duplicate trees (3):** `AuthBootstrap` renders exactly one of three mutually exclusive branches; `OfflineSessionProvider` wraps a single `AuthBootstrap`; the navigation Stack can only ever be mounted once.
+- **Clerk always overrides (4):** render condition is `isLoaded ||`, guards check `isLoaded` first in every route, and an effect revokes the grant when `isLoaded` becomes true. `ApiAuthentication` likewise only wires a token getter when loaded.
+- **Fresh offline install (5):** marker resolves `false` (never `"1"` on a fresh install), so the grant condition `marker === true` never fires; at 10 s the branded "No saved session found" screen renders, and the app tree (tabs/sign-in) is never mounted.
+- **Prior-auth offline entry (6):** marker `"1"` + timeout → app tree + in-memory grant → tabs render with local data.
+- **Online signed-out (7):** `isLoaded && !isSignedIn` → Google form on `sign-in`; tabs redirect out — no reliance on `granted`.
+- **Offline sign-out clears marker (8):** `signOut()` failure is swallowed, then `writeOfflineSessionMarker(false)` runs unconditionally, then `revokeOfflineSession()`. The marker stays `"0"` so a future offline boot stays locked; `ApiAuthentication` won't overwrite it because its effect early-returns while `!isLoaded`.
+- **Granted cannot leak (9):** `revokeOfflineSession()` always runs last in the handler and `AuthBootstrap` also revokes on any `isLoaded`; no code path sets `granted` true except the single guarded grant effect.
+- **Marker not a token (10):** it stores `"1"`/`"0"` only; the only credentials flow through Clerk's `getToken`; nothing reads the marker back into an auth getter (`OFFLINE_SESSION_KEY` usage is limited to `offline-session.ts`).
+- **No bearer offline (11):** `_authTokenGetter` is module-initialized `null`; during granted mode `isLoaded` is false so `ApiAuthentication` never sets a getter, and `customFetch` only adds an `Authorization` header when a non-null getter returns a token.
+- **Server/calendar/quote disabled (12):** daily quote `enabled: networkAvailable`; calendar preview `enabled: authLoaded && !!isSignedIn && networkAvailable`; booking disabled without `networkAvailable`.
+- **No redirect loops (13):** every `Redirect` target either renders a stable brand/form/blocked screen or lands in a state that satisfies the guard; the only multi-hop (`(tabs)` → `/sign-in` → `/(tabs)`) is the single post-commit flash above and terminates.
+- **Hydration (14):** `AppProvider` still mounts inside the app tree and gates all persistence writes on `hydrated`; untouched.
+- **Timer/workout unchanged (15):** the diff is confined to the four reviewed app files plus two new modules; no timer, workout, alarm, or run-routing code was modified.
+- **No blank tree (16):** every `AuthBootstrap` branch returns a branded `View`; `RootLayout` returns `null` only pre-font, while the native splash is still covering; the earlier `return null` guard was removed everywhere else.
