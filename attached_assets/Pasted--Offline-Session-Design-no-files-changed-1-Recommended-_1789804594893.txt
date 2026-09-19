@@ -1,0 +1,65 @@
+## Offline-Session Design (no files changed)
+
+### 1. Recommended state flow
+
+Persist a single boolean marker, **`no-excuses-offline-session`** in AsyncStorage, that records "this device previously had a valid Clerk session." It is never used as a credential — it only unlocks *local* UI.
+
+State drivers:
+- `useAuth()` → `isLoaded`, `isSignedIn` (Clerk remains the sole authority whenever it loads)
+- marker `M` (persisted `'1'`/`'0'`)
+- `offlineGranted` (in-memory session flag): `true` when Clerk failed to load within a bounded window (`~10s`) **and** `M === '1'`
+- existing `networkAvailable`/`offlineMode`/`isOnline` (AppContext) — unchanged, keeps server features off
+
+**Where the marker is set:** single effect in `ApiAuthentication` (already inside `ClerkProvider`):
+- `isLoaded && isSignedIn` → write `'1'` (covers fresh Google sign-in and every online boot with a valid cached session)
+
+**Where it is cleared:**
+1. Same `ApiAuthentication` effect: `isLoaded && !isSignedIn` → write `'0'` (covers explicit sign-out online, and server-side revocation observed on the next online boot)
+2. New **Sign out** action in Settings → Clerk `signOut()` (best-effort) *plus* local clear, so offline re-entry is blocked immediately
+
+**Gates (AuthBootstrap + route guards):**
+- `isLoaded` true → Clerk governs entirely (marker just syncs in background). No change to sign-in/redirect behavior.
+- `!isLoaded` within window → branded AuthBootstrap screen (current behavior).
+- `!isLoaded` after window + `M === '1'` → mount the full existing tree with `offlineGranted=true`. Tabs and sign-in check `isSignedIn || offlineGranted`.
+- `!isLoaded` after window + no marker → stay on the branded screen (no bypass — fresh installs blocked offline).
+
+No `Clerk.reinitialize()` needed for the design: `ClerkProvider` never unmounts, so if Clerk *does* eventually load in-session the route guards immediately defer to it; a relaunch after connectivity returns runs normal bootstrap. Offline, `ApiAuthentication` reports `isSignedIn=false` → `setAuthTokenGetter(() => null)` → **no bearer token exists**, and `networkAvailable` stays false → calendar/OAuth/quote/server calls already-disabled remain disabled.
+
+### 2. Files that change
+1. **`lib/offline-session.ts`** (new) — key const + `readOfflineSessionMarker()` / `writeOfflineSessionMarker()`
+2. **`context/OfflineSessionContext.tsx`** (new) — `OfflineSessionProvider` + `useOfflineSession()`, exposes `granted`
+3. **`app/_layout.tsx`** — marker read in `AuthBootstrap` + bounded wait + grant; marker sync in `ApiAuthentication` effect; provider wraps tree (granted value)
+4. **`app/(tabs)/_layout.tsx`** — gate: `if (!isLoaded && !granted) return null; if (!isSignedIn && !granted) return <Redirect href="/sign-in" />;`
+5. **`app/sign-in.tsx`** — `if (!granted && !isLoaded) return null; if (isSignedIn) Redirect /connect-calendar; if (granted) Redirect /(tabs);`
+6. **`app/(tabs)/settings.tsx`** — add **Sign out** (Clerk `useSignOut()` + marker clear, confirmation alert)
+
+No changes to `AppContext`, countdown logic, network layer, or API client.
+
+### 3. Behavior matrix
+| State | Behavior |
+|---|---|
+| Fresh install, online | Clerk loads, `isSignedIn=false`, marker `'0'` → normal sign-in flow |
+| Fresh install, offline | Clerk fails (3 retries ≈42s), no marker → stays on branded screen; **cannot bypass Google sign-in** |
+| Authenticated, online boot | Clerk loads signed-in → marker confirmed `'1'`; full server features (unchanged) |
+| Authenticated, offline boot | After `~10s` wait, marker `'1'` → app mounts; Today/countdown/local data usable; Calendar/quote/API disabled |
+| Signed out online | `signOut()` → `isSignedIn=false` → marker `'0'`; offline relaunch blocked |
+| Signed out, offline | marker `'0'` (or Clerk loads signed-out → auto-clear) → blocked, branded screen |
+| Server session revoked | next online boot `isSignedIn=false` → marker auto-cleared |
+| Network returns mid-session | ClerkProvider persists; if Clerk loads later, guards defer to Clerk automatically; next launch is full online |
+
+### 4. Security / data-isolation concerns
+- The marker is a **non-sensitive boolean**; never stored with the token, never sent over the network, never used to authenticate. Server still requires a `Bearer` token that cannot exist offline (`getToken` unavailable, getter returns null) → **no server-side auth bypass**.
+- Device tampering with the marker only unlocks local UI; the API and Google Calendar remain token/network-gated (unchanged).
+- AsyncStorage is unencrypted — same exposure as all existing workout/activity history (unchanged threat model); marker adds negligible risk.
+- No new native dependency (AsyncStorage + `@clerk/expo` `useSignOut` already installed).
+- Single-user device-bound access; if multi-account is ever added, extend marker to include the user ID.
+
+### 5. Minimal implementation plan
+1. Create `lib/offline-session.ts` (key + read/write helpers).
+2. Create `context/OfflineSessionContext.tsx` (`granted` state + hook).
+3. In `_layout.tsx`: read marker in `AuthBootstrap`, add `~10s` bounded wait; if timed-out & `!isLoaded` & marker → grant + mount tree; extend `ApiAuthentication` to sync marker from `isSignedIn`; wrap tree with provider.
+4. Update gates in `(tabs)/_layout.tsx` and `sign-in.tsx` to honor `granted`.
+5. Add minimal Sign out in `settings.tsx` (clears marker).
+6. Run mobile + workspace typechecks and `git diff --check`; subject to your review before any rebuild.
+
+Stopping for review — no files modified, nothing rebuilt.
