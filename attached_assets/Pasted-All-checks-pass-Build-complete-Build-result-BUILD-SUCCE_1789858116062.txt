@@ -1,0 +1,28 @@
+All checks pass. Build complete.
+
+## Build result
+`BUILD SUCCESSFUL in 1m 48s` (`:app:assembleRelease`, 24 executed / 802 up-to-date). Variant is **release** (`android/app/build/outputs/apk/release`), JS bundle embedded by Gradle's `createBundleReleaseJs` during the build. No Metro was started by me; port **8081 has no listener** (8082/33816 is a pre-existing Metro from an earlier session, untouched).
+
+## APK path
+`artifacts/no-excuses/android/app/build/outputs/apk/release/app-release.apk`
+
+## APK size
+53,468,549 bytes (~50.99 MB). Embedded `assets/index.android.bundle` = 5,452,252 bytes; Hermes `.so` present for `armeabi-v7a` only.
+
+## Bundle verification
+- Package: `com.noexcuses.app`, versionCode 1, versionName 1.0.0, minSdk 24, targetSdk 36, label "No Excuses", launchable `com.noexcuses.app.MainActivity`, ABI `armeabi-v7a`.
+- `android:debuggable`: **absent** (release).
+- **No** `DevLauncherActivity` or `DevMenuActivity` — activity list is `MainActivity` + library-only activities (imagepicker/cropper, webbrowser, Clerk SSO, credentials, GMS, PlayCore).
+- No `exp://` in the bundle (0 occurrences); manifest schemes are `no-excuses`, `clerk`, `https`, `solana-wallet` — no `exp+` scheme.
+- New offline-session code confirmed embedded: `no-excuses-offline-session` marker, "No saved session found", "Checking your saved session...", "Sign out of No Excuses?" all present in the bundle.
+- Env markers: `pk_test_` ×3 (matches prior release, values not printed); `localhost` ×1 — confirmed the known benign static Clerk SDK string (`tp://localhost:8081/backup_codes/...`), not the API base URL; `10.0.2.2` ×0. No secrets leaked into the bundle.
+
+## Signing verification
+`apksigner verify --print-certs`: V2 signer matches the previous release certificate exactly — SHA-1 `5e8f16062ea3cd2c4a0d547876baa6f38cabf625`, SHA-256 `fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c`, DN `CN=Android Debug`. (Keystore on disk hashed identically to the `debug.keystore.bak` backup before the build.)
+
+## Warnings (separate from errors)
+- None from the build itself (only the stock "Deprecated Gradle features … Gradle 10" informational notice).
+- `CanhubCropImageActivity` and `solana-wallet` scheme are third-party library artifacts (imagepicker / Clerk), pre-existing and unchanged.
+- Port 8082/33816 pre-existing Metro is still listening — not started during this build.
+
+Stopping per instructions. APK not installed. Mobile and workspace typechecks were already green earlier in this session, and the built bundle demonstrably contains the new source.
