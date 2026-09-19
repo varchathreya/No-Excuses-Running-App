@@ -1,0 +1,31 @@
+## Offline Cold-Start Test — Result
+
+**The AuthBootstrap fallback works (no white screen, no dev tools) — but the cached app never mounted while offline.** Clerk's offline initialization hit its hard cap (3 retries) and `isLoaded` never became true, so the branded loading screen stayed up for the entire observation window. Airplane Mode remains enabled, logs preserved, **no fix attempted** (per instructions).
+
+**Setup:** Airplane Mode `on` (airplane_mode_on=1, "Active default network: none"), screen awake, keyguard dismissed. Launch at **17:23:04** (`force-stop` + `monkey -p com.noexcuses.app 1`).
+
+**Timeline (T = seconds after launch):**
+| T | Observation |
+|---|---|
+| +12s | Clerk refresh failure #1 → "continuing with cached Clerk state" |
+| +22s | Refresh failure #2 |
+| +37s | UI dump: **"NO EXCUSES" + "Checking your saved session..."** (AuthBootstrap) |
+| +40s | Screenshot pixel scan: **4,670/5,184 dark (#111315), 93 orange accent, 12 white** — dark branded screen, confirmed NOT white |
+| +42s | Refresh failure #3 → **"Max initialization retries (3) reached. Initialization failed permanently."** |
+| +60s…+192s | UI dumps at +60, +88, +120, +138, +180, +192s: **identical AuthBootstrap content** every time |
+
+**Checklist:**
+1. Focused activity/window: `com.noexcuses.app/.MainActivity` (`mResumedActivity` + `mCurrentFocus` confirmed) ✓
+2. Reaches foreground: **Yes** ✓
+3. AuthBootstrap screen appears: **Yes** — visible and branded at every sample point ✓
+4. Cached authenticated app appears: **No** (never mounted within 3m12s)
+5. Screen remains white: **No** — never white, verified by UI text + pixel data ✓
+6. React Native DevTools: **No** ✓
+7. "Open debugger to view warnings": **No** ✓
+8. Logcat (`ReactNativeJS`/`AndroidRuntime`/`Clerk`/package/`8081`/`exp://`/`devtools`): preserved to `offline-launch-logcat.txt` — `ReactNativeJS: Running "main"` (bundle from assets); Clerk retry cycle at 12s/22s/42s → permanent failure; **no** AndroidRuntime crash of our app, **no** `8081`/`exp://`/devtools references ✓
+
+**Evidence saved** (in `%TEMP%\opencode\offline-test\`): `offline-launch-logcat.txt` (115 KB), `t40.png` (valid screenshot), UI dumps `ui_t10/60/120/180.xml`, plus the corrupted early `offline_t5_*.png` (local PNG-redirection artifact, superseded by `t40.png`).
+
+**Observation (root-cause, no change made):** fully offline, Clerk allows only 3 refresh attempts then hard-fails; since `ClerkProvider` never reports `isLoaded=true`, the app never mounts `AppProvider`/cached tree, so the AuthBootstrap screen persists correctly instead of the old white window — but the app cannot reach cached content until a network/retry path completes.
+
+Stopping here as instructed — Airplane Mode left enabled, logs preserved, no fix attempted.
