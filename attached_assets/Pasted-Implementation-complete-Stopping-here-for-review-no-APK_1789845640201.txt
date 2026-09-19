@@ -1,0 +1,26 @@
+Implementation complete. Stopping here for review — no APK rebuild, no device install.
+
+## Files changed
+- `lib/offline-session.ts` (new) — AsyncStorage marker `no-excuses-offline-session` = `"1"`/`"0"` via `readOfflineSessionMarker`/`writeOfflineSessionMarker`. Marker is a boolean only — no token, never sent to server.
+- `context/OfflineSessionContext.tsx` (new) — `OfflineSessionProvider` + `useOfflineSession()` exposing `granted`, `grantOfflineSession`, `revokeOfflineSession`. The provider does **not** self-grant; only `AuthBootstrap` decides.
+- `app/_layout.tsx` — wrapped `AuthBootstrap` in `OfflineSessionProvider`; `AuthBootstrap` reads the marker, waits a bounded 10 s (`OFFLINE_BOOT_WAIT_MS`), mounts the existing app tree if Clerk loaded OR marker `"1"` timed out; if timed out with no marker shows branded "No saved session found" screen; loading screen meanwhile unchanged. Clerk authority wins: whenever `isLoaded` flips, it revokes any grant. `ApiAuthentication` now also syncs the marker (`isSignedIn` → `"1"`, else `"0"`) inside the loaded-only effect — token getter behavior unchanged (still `() => null` offline).
+- `app/(tabs)/_layout.tsx` — gate is now `isLoaded && !isSignedIn` → `/sign-in`; `!isLoaded && !granted` → `/sign-in`.
+- `app/sign-in.tsx` — `isLoaded && isSignedIn` → `/connect-calendar`; `isLoaded` → Google form; `granted` → `/(tabs)`; `!isLoaded && !granted` → branded "Connect to the internet." locked screen (no offline Google sign-in).
+- `app/(tabs)/settings.tsx` — new ACCOUNT section with a destructive **Sign out** button: confirmation `Alert`, best-effort `useClerk().signOut()` (caught), marker forced to `"0"`, then `revokeOfflineSession()` — offline it clears the marker even though `signOut()` fails, which blocks offline re-entry.
+
+## Marker lifecycle
+- Set `"1"` only when `ApiAuthentication` observes `isLoaded && isSignedIn`.
+- Set `"0"` when loaded-and-signed-out (any sign-in screen) and immediately on sign-out confirm.
+- Read only by `AuthBootstrap`; granted access is in-memory and revoked the moment Clerk loads.
+
+## State flow
+Fresh install → offline: loading 10 s → branded "No saved session found" (no entry). Prior sign-in → offline boot: loading 10 s → app tree mounts, tabs accessible (AppContext hydrates from storage; calendar preview/quote/API stay off via `networkAvailable`; no bearer token). Offline sign-out: marker cleared + revoked → redirect to `/sign-in` locked screen. Server session revoked later: next online boot Clerk loads unsigned → marker `"0"`, form shows. Network returning after grant: Clerk loads → revokes grant, guards defer to Clerk.
+
+## Verification
+- Mobile typecheck: pass (`tsc -p tsconfig.json --noEmit`).
+- Workspace typecheck (4 projects): pass.
+- `git diff --check`: pass. Clean diff; only the 4 modified + 2 new files (plus pre-existing playbook/log).
+
+## Unresolved concerns
+- No runtime verification yet (no APK rebuild / device touch as instructed) — the next online boot after a rebuild is the first real-world check of the marker path.
+- Offline sign-out with a still-valid Clerk session: if the device comes back online, Clerk may restore the session on its own (`signOut()` failed offline), so the marker/revoke prevent UI entry regardless — acceptable since Clerk is authoritative.
