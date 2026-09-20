@@ -60,7 +60,7 @@ const local = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', justifyContent: 'center', padding: 24 },
   card: { borderRadius: 24, borderWidth: 1, padding: 22, gap: 14 },
   icon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 23, lineHeight: 29 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 21, lineHeight: 26 },
   message: { fontFamily: 'Inter_400Regular', fontSize: 14, lineHeight: 21 },
   cancel: { minHeight: 38, alignItems: 'center', justifyContent: 'center' },
   cancelText: { fontFamily: 'Inter_700Bold', fontSize: 13 },

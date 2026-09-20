@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   disconnectCalendarOAuth,
   getCalendarPreview,
@@ -10,10 +10,10 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import * as IntentLauncher from 'expo-intent-launcher';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { activeWorkoutWeek, isWorkoutAvailableToday, useApp, workoutDateLabel, workoutWeekdayName, Workout, workoutWeekdayIndex, workoutDate } from '@/context/AppContext';
+import { currentPlanWeek, isWorkoutAvailableToday, useApp, workoutDateLabel, workoutWeekdayName, Workout, workoutWeekdayIndex, workoutDate } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { getCalendarOAuthRedirectUrl } from '@/lib/oauth';
 import { BrandedModal } from '@/components/BrandedModal';
@@ -83,18 +83,15 @@ function formatEventTime(start?: string) {
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function WorkoutRow({ item, startDate, booked, calendarStart, networkAvailable, onAlarmRequested, onStartRequested }: { item: Workout; startDate?: string | null; booked: boolean; calendarStart?: string; networkAvailable: boolean; onAlarmRequested: (item: Workout) => void; onStartRequested: (item: Workout) => void }) {
+function sessionType(item: Workout) {
+  if (item.type === 'rehab') return 'Rehab';
+  if (item.kind === 'hsr') return 'Strength';
+  return 'Run';
+}
+
+function WorkoutRow({ item, startDate, onInfoRequested }: { item: Workout; startDate?: string | null; onInfoRequested: (item: Workout) => void }) {
   const colors = useColors();
-  const { setAlarmChecked } = useApp();
   const weekday = workoutWeekdayName(item.day, startDate);
-  const alarmChecked = !!item.alarmSet;
-  const alarmPress = () => {
-    if (alarmChecked) {
-      setAlarmChecked(item.id, false);
-      return;
-    }
-    onAlarmRequested(item);
-  };
   return (
     <View style={[local.row, { backgroundColor: colors.card }]}>
       <View style={local.rowTop}>
@@ -102,27 +99,83 @@ function WorkoutRow({ item, startDate, booked, calendarStart, networkAvailable, 
           <Text style={{ color: item.completed ? colors.accentForeground : colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 11 }}>{weekday.slice(0, 3).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <View style={local.titleLine}><Text style={[local.rowTitle, { color: colors.foreground }]}>{item.title}</Text>{item.completed && <Pill color={colors.accent}>DONE</Pill>}</View>
-          <Text style={[styles.muted, { color: colors.primary }]}>{item.duration}</Text>
-           <Text style={[styles.muted, { color: colors.mutedForeground }]}>Week {item.week}{workoutDateLabel(item.day, startDate) ? ` · ${workoutDateLabel(item.day, startDate)}` : ''}</Text>
+          <View style={local.titleLine}><Text style={[local.rowTitle, { color: colors.foreground }]}>{sessionType(item)}</Text>{item.completed && <Pill color={colors.accent}>DONE</Pill>}</View>
+          <Text style={[styles.muted, { color: colors.mutedForeground }]}>{workoutDateLabel(item.day, startDate) ?? weekday}</Text>
         </View>
-      </View>
-      <View style={local.actions}>
-        {booked && formatEventTime(calendarStart) ? (
-          <View testID={`calendar-time-${item.id}`} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}>
-            <Feather name="calendar" size={14} color={colors.background} />
-            <Text style={[local.smallText, { color: colors.background }]}>{formatEventTime(calendarStart)}</Text>
-          </View>
-        ) : (
-          <Pressable testID={`book-${item.id}`} disabled={!networkAvailable} onPress={() => openCalendar(item, startDate)} style={[local.smallButton, { borderColor: booked ? colors.accent : colors.border, opacity: networkAvailable ? 1 : 0.42 }]}><Feather name="calendar" size={14} color={booked ? colors.accent : colors.foreground} /><Text style={[local.smallText, { color: booked ? colors.accent : colors.foreground }]}>{booked ? 'Booked' : networkAvailable ? 'Book' : 'Offline'}</Text></Pressable>
-        )}
-        <Pressable testID={`start-${item.id}`} onPress={() => onStartRequested(item)} style={[local.smallButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}><Feather name="play" size={14} color={colors.background} /><Text style={[local.smallText, { color: colors.background }]}>Start</Text></Pressable>
-        <Pressable testID={`alarm-${item.id}`} accessibilityRole="checkbox" accessibilityLabel={alarmChecked ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} accessibilityHint={alarmChecked ? 'Uncheck here if you remove it in Clock' : undefined} accessibilityState={{ checked: alarmChecked }} onPress={alarmPress} style={[local.smallButton, { borderColor: alarmChecked ? colors.accent : colors.border }]}>
-          {alarmChecked ? <View style={[local.checkbox, { borderColor: colors.accent, backgroundColor: colors.accent }]}><Feather name="check" size={13} color={colors.accentForeground} /></View> : <Feather name="clock" size={16} color={colors.foreground} />}
-          <Text style={[local.smallText, { color: alarmChecked ? colors.accent : colors.foreground }]}>{alarmChecked ? 'Alarm set' : 'Alarm'}</Text>
+        <Pressable
+          testID={`Info ${item.id}`}
+          accessibilityRole="button"
+          accessibilityLabel={`More information about ${item.title}`}
+          onPress={() => onInfoRequested(item)}
+          style={({ pressed }) => [local.infoButton, { backgroundColor: colors.secondary, opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Feather name="info" size={18} color={colors.primary} />
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function WorkoutInfoModal({
+  item,
+  startDate,
+  booked,
+  calendarStart,
+  networkAvailable,
+  onClose,
+  onStart,
+  onBook,
+  onAlarm,
+}: {
+  item: Workout | null;
+  startDate: string | null;
+  booked: boolean;
+  calendarStart?: string;
+  networkAvailable: boolean;
+  onClose: () => void;
+  onStart: (item: Workout) => void;
+  onBook: (item: Workout) => void;
+  onAlarm: (item: Workout) => void;
+}) {
+  const colors = useColors();
+  if (!item) return null;
+  const dateLabel = workoutDateLabel(item.day, startDate) ?? workoutWeekdayName(item.day, startDate);
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <View style={local.infoBackdrop}>
+        <View style={[local.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={local.infoHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[local.infoEyebrow, { color: colors.primary }]}>{sessionType(item)} · WEEK {item.week}</Text>
+              <Text style={[local.infoTitle, { color: colors.foreground }]}>{item.title}</Text>
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close workout information" onPress={onClose} style={[local.infoClose, { backgroundColor: colors.secondary }]}>
+              <Feather name="x" size={18} color={colors.foreground} />
+            </Pressable>
+          </View>
+          <Text style={[styles.muted, { color: colors.mutedForeground }]}>{item.focus}</Text>
+          <View style={[local.infoMetrics, { backgroundColor: colors.secondary }]}>
+            <View style={local.infoMetric}><Text style={[local.infoMetricLabel, { color: colors.mutedForeground }]}>DATE</Text><Text style={[local.infoMetricValue, { color: colors.foreground }]}>{dateLabel}</Text></View>
+            <View style={local.infoMetric}><Text style={[local.infoMetricLabel, { color: colors.mutedForeground }]}>SESSION</Text><Text style={[local.infoMetricValue, { color: colors.foreground }]}>{item.duration}</Text></View>
+          </View>
+          {item.minimumDurationSeconds ? (
+            <Text style={[styles.muted, { color: colors.mutedForeground }]}>Minimum run time: {Math.floor(item.minimumDurationSeconds / 60)} minutes.</Text>
+          ) : null}
+          <Button label="Start session" icon="play" onPress={() => onStart(item)} />
+          <Button
+            label={booked && formatEventTime(calendarStart) ? `Booked · ${formatEventTime(calendarStart)}` : networkAvailable ? 'Book in Google Calendar' : 'Calendar unavailable offline'}
+            icon="calendar"
+            secondary
+            disabled={!networkAvailable}
+            onPress={() => onBook(item)}
+          />
+          <Button label={item.alarmSet ? 'Alarm marked as set' : 'Set 6:00 AM alarm'} icon="clock" secondary onPress={() => onAlarm(item)} />
+          <Pressable accessibilityRole="button" onPress={onClose} style={local.infoCancel}>
+            <Text style={[local.infoCancelText, { color: colors.mutedForeground }]}>Close</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -132,9 +185,10 @@ export default function Schedule() {
   const queryClient = useQueryClient();
   const { workouts, startDate, setAlarmChecked, networkAvailable, offlineMode, isOnline } = useApp();
   const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
-  const [week, setWeek] = useState(1);
+  const [week, setWeek] = useState(() => currentPlanWeek(workouts, startDate) ?? 1);
   const [pendingStart, setPendingStart] = useState<Workout | null>(null);
   const [pendingAlarmConfirmation, setPendingAlarmConfirmation] = useState<Workout | null>(null);
+  const [infoWorkout, setInfoWorkout] = useState<Workout | null>(null);
   const [linkingCalendar, setLinkingCalendar] = useState(false);
   const [linkingCalendarError, setLinkingCalendarError] = useState<string | null>(null);
   const calendar = useGetCalendarPreview(
@@ -150,15 +204,22 @@ export default function Schedule() {
   const authMismatch = getAuthErrorCode(calendar.error) === 'AUTH_TOKEN_REJECTED';
   const authExpired = getAuthErrorCode(calendar.error) === 'AUTH_REQUIRED';
   const visible = useMemo(() => workouts.filter((item) => item.week === week), [workouts, week]);
+  const infoCalendarEvent = infoWorkout
+    ? calendar.data?.events.find((event) => event.summary.includes(`W${infoWorkout.week}D${infoWorkout.day}`))
+    : undefined;
   const previousAppState = useRef(AppState.currentState);
   const pendingAlarm = useRef<Workout | null>(null);
   const navigateToWorkout = (item: Workout) => {
-    if (!isWorkoutAvailableToday(item.day, item.week, activeWorkoutWeek(workouts), startDate)) {
+    const activeWeek = currentPlanWeek(workouts, startDate) ?? 1;
+    if (!isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate)) {
       setPendingStart(item);
       return;
     }
     router.push(item.type === 'rehab' ? `/rehab?workoutId=${item.id}` : `/run?workoutId=${item.id}`);
   };
+  useFocusEffect(useCallback(() => {
+    setWeek(currentPlanWeek(workouts, startDate) ?? 1);
+  }, [startDate, workouts]));
   const presentLinkCalendarOutcome = (outcome: Awaited<ReturnType<typeof linkCalendar>>) => {
     switch (outcome.status) {
       case 'not-ready':
@@ -318,15 +379,33 @@ export default function Schedule() {
     </View>
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>
      <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
-    {visible.map((item) => {
-      const marker = `W${item.week}D${item.day}`;
-      const calendarEvent = calendar.data?.events.find((event) => event.summary.includes(marker));
-         return <WorkoutRow key={item.id} item={item} startDate={startDate} booked={!!calendarEvent} calendarStart={calendarEvent?.start} networkAvailable={networkAvailable} onAlarmRequested={requestAlarm} onStartRequested={navigateToWorkout} />;
-     })}
+     {visible.map((item) => (
+       <WorkoutRow key={item.id} item={item} startDate={startDate} onInfoRequested={setInfoWorkout} />
+     ))}
+      <WorkoutInfoModal
+        item={infoWorkout}
+        startDate={startDate}
+        booked={!!infoCalendarEvent}
+        calendarStart={infoCalendarEvent?.start}
+        networkAvailable={networkAvailable}
+        onClose={() => setInfoWorkout(null)}
+        onStart={(item) => {
+          setInfoWorkout(null);
+          navigateToWorkout(item);
+        }}
+        onBook={(item) => {
+          openCalendar(item, startDate);
+          setInfoWorkout(null);
+        }}
+        onAlarm={async (item) => {
+          setInfoWorkout(null);
+          await requestAlarm(item);
+        }}
+      />
      <BrandedModal
        visible={!!pendingStart}
-         title={`Please wait until Week ${pendingStart?.week ?? 1}, ${pendingStart ? workoutWeekdayName(pendingStart.day, startDate) : ''}${pendingStart && workoutDateLabel(pendingStart.day, startDate) ? ` · ${workoutDateLabel(pendingStart.day, startDate)}` : ''}`}
-        message="This planned session can only be completed during its active plan week and on its scheduled day. You can still review it now."
+          title={`Please wait until ${pendingStart ? workoutWeekdayName(pendingStart.day, startDate) : 'the scheduled day'}`}
+         message={pendingStart ? `This is a Week ${pendingStart.week} session scheduled for ${workoutDateLabel(pendingStart.day, startDate) ?? workoutWeekdayName(pendingStart.day, startDate)}. You can review it now, but start it on its assigned date.` : ''}
        onRequestClose={() => setPendingStart(null)}
        primaryLabel="Okay"
        onPrimaryPress={() => setPendingStart(null)}
@@ -362,6 +441,19 @@ const local = StyleSheet.create({
   day: { width: 46, height: 46, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   rowTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, flex: 1 },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
+  infoButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  infoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.72)', justifyContent: 'center', padding: 24 },
+  infoCard: { borderRadius: 24, borderWidth: 1, padding: 22, gap: 14 },
+  infoHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  infoEyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.2, fontSize: 10, marginBottom: 6 },
+  infoTitle: { fontFamily: 'Inter_700Bold', fontSize: 23, lineHeight: 28 },
+  infoClose: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  infoMetrics: { borderRadius: 15, padding: 14, flexDirection: 'row', gap: 18 },
+  infoMetric: { flex: 1, gap: 4 },
+  infoMetricLabel: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1 },
+  infoMetricValue: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  infoCancel: { minHeight: 32, alignItems: 'center', justifyContent: 'center' },
+  infoCancelText: { fontFamily: 'Inter_700Bold', fontSize: 13 },
   checkbox: { width: 16, height: 16, borderRadius: 5, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   actions: { flexDirection: 'row', gap: 7 },
   smallButton: { flex: 1, minHeight: 42, borderRadius: 11, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 7 },

@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { Screen, Header, Button, SectionTitle, styles } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
-import { activeWorkoutWeek, isWorkoutAvailableToday, type RehabLog, type Workout, useApp, workoutWeekdayName, workoutWeekdayIndex } from '@/context/AppContext';
+import { currentPlanWeek, isWorkoutAvailableToday, scheduledWorkoutForToday, type RehabLog, type Workout, useApp, workoutDateLabel, workoutWeekdayName, workoutWeekdayIndex } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BrandedModal } from '@/components/BrandedModal';
 import Svg, { Circle } from 'react-native-svg';
@@ -81,11 +81,10 @@ export default function Rehab() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
-  const { workouts, startDate, completeWorkout, rehabLogs, saveRehabLog } = useApp();
+  const { workouts, startDate, regimenId, completeWorkout, rehabLogs, saveRehabLog } = useApp();
   const scrollRef = useRef<ScrollView>(null);
-  const activeWeek = activeWorkoutWeek(workouts);
-  const todayIndex = (new Date().getDay() + 6) % 7;
-  const todayWorkout = workouts.find((item) => item.week === activeWeek && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
+  const activeWeek = currentPlanWeek(workouts, startDate) ?? 1;
+  const todayWorkout = scheduledWorkoutForToday(workouts, startDate);
   const workout = workouts.find((item) => item.id === workoutId) ?? todayWorkout;
   const requestedRestDay = !!workoutId && workout?.kind === 'rest';
   const routine = useMemo(
@@ -106,6 +105,7 @@ export default function Rehab() {
   const [historyExercise, setHistoryExercise] = useState<RepExercise | null>(null);
   const [timerY, setTimerY] = useState(0);
   const [showUnavailable, setShowUnavailable] = useState(true);
+  const previousRegimen = useRef(regimenId);
 
   useEffect(() => {
     setActive(0);
@@ -120,6 +120,13 @@ export default function Rehab() {
     setRepSets(Object.fromEntries(repRoutine.map((item) => [item.key, Array.from({ length: item.sets }, () => ({ completed: false, reps: String(item.reps), weight: '' }))])));
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [workout?.id, workout?.kind, workout?.week, workout?.rehabRoutine]);
+
+  useEffect(() => {
+    if (previousRegimen.current !== regimenId) {
+      setShowUnavailable(false);
+      previousRegimen.current = regimenId;
+    }
+  }, [regimenId]);
 
   useEffect(() => {
     if (!isoStarted || isoSeconds <= 0) return;
@@ -282,8 +289,8 @@ export default function Rehab() {
         </View>
         <BrandedModal
           visible={unavailable && showUnavailable}
-           title={`Please wait until Week ${workout.week}, ${workoutWeekdayName(workout.day, startDate)}`}
-          message="This planned session can only be completed on its scheduled day. You can review the routine now, but its controls stay locked until then."
+           title={`Please wait until ${workoutWeekdayName(workout.day, startDate)}`}
+           message={`This is a Week ${workout.week} session scheduled for ${workoutDateLabel(workout.day, startDate) ?? workoutWeekdayName(workout.day, startDate)}. You can review the routine now, but its controls stay locked until then.`}
           onRequestClose={() => setShowUnavailable(false)}
           primaryLabel="Okay"
           onPrimaryPress={() => setShowUnavailable(false)}

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, Modal, Platform, Pressable, StyleSheet, Text,
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
-import { activeWorkoutWeek, Activity, isWorkoutAvailableToday, RoutePoint, useApp, workoutWeekdayName, Workout } from '@/context/AppContext';
+import { Activity, currentPlanWeek, isWorkoutAvailableToday, RoutePoint, scheduledWorkoutForToday, useApp, workoutDateLabel, workoutWeekdayName, Workout } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import NativeRouteMap from '@/components/NativeRouteMap';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -42,7 +42,7 @@ export default function Run() {
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
   const { workouts, startDate, regimenId, saveActivity, activities, completeWorkout } = useApp();
   const requestedWorkout = workouts.find((item) => item.id === workoutId);
-  const activeWeek = activeWorkoutWeek(workouts);
+  const activeWeek = currentPlanWeek(workouts, startDate) ?? 1;
   const wrongDay = !!requestedWorkout && !isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek, startDate);
   const requestedWorkoutToday = requestedWorkout
     && requestedWorkout.scheduled
@@ -51,12 +51,14 @@ export default function Run() {
      && isWorkoutAvailableToday(requestedWorkout.day, requestedWorkout.week, activeWeek, startDate)
     ? requestedWorkout
     : undefined;
-  const todayWorkout = requestedWorkoutToday ?? workouts.find((item) =>
-    item.week === activeWeek
-    && item.scheduled
-    && !item.completed
-    && item.type !== 'rehab'
-     && isWorkoutAvailableToday(item.day, item.week, activeWeek, startDate));
+  const scheduledToday = scheduledWorkoutForToday(workouts, startDate);
+  const todayWorkout = requestedWorkoutToday ?? (
+    scheduledToday?.scheduled
+    && !scheduledToday.completed
+    && scheduledToday.type !== 'rehab'
+      ? scheduledToday
+      : undefined
+  );
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -86,6 +88,15 @@ export default function Run() {
     setShowWrongDay(wrongDay);
     setIgnoreRequestedWorkout(false);
   }, [workoutId, wrongDay]);
+
+  const previousRegimen = useRef(regimenId);
+  useEffect(() => {
+    if (previousRegimen.current !== regimenId) {
+      setShowWrongDay(false);
+      setIgnoreRequestedWorkout(true);
+      previousRegimen.current = regimenId;
+    }
+  }, [regimenId]);
 
   useEffect(() => () => {
     watch.current?.remove();
@@ -464,8 +475,8 @@ export default function Run() {
 
       <BrandedModal
         visible={showWrongDay}
-         title={`Please wait until Week ${requestedWorkout?.week ?? 1}, ${workoutWeekdayName(requestedWorkout?.day ?? 1, startDate)}`}
-        message="This planned session can only be completed on its scheduled day. You can still record an unscheduled run now."
+         title={`Please wait until ${workoutWeekdayName(requestedWorkout?.day ?? 1, startDate)}`}
+        message={requestedWorkout ? `This is a Week ${requestedWorkout.week} session scheduled for ${workoutDateLabel(requestedWorkout.day, startDate) ?? workoutWeekdayName(requestedWorkout.day, startDate)}. You can still record an unscheduled run now.` : ''}
         onRequestClose={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}
         primaryLabel="Okay"
         onPrimaryPress={() => { setShowWrongDay(false); setIgnoreRequestedWorkout(true); }}

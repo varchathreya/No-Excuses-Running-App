@@ -4,14 +4,16 @@ import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@clerk/expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApp } from '@/context/AppContext';
 
 export default function TabLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isLoaded, isSignedIn } = useAuth();
+  const { hydrated } = useApp();
 
-  if (!isLoaded) return null;
-  if (!isSignedIn) return <Redirect href="/sign-in" />;
+  if (!hydrated) return null;
+  if (isLoaded && !isSignedIn) return <Redirect href="/sign-in" />;
 
   return (
     <Tabs screenOptions={{

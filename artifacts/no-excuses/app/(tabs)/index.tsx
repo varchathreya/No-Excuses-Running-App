@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useGetDailyQuote } from '@workspace/api-client-react';
 import { Screen, Header, SectionTitle, styles } from '@/components/Screen';
-import { useApp } from '@/context/AppContext';
+import { currentPlanWeek, scheduledWorkoutForToday, useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
 import { router } from 'expo-router';
 
@@ -27,9 +27,10 @@ function dateLabel() {
 
 export default function Today() {
   const colors = useColors();
-  const { workouts, completedCount, totalMiles, networkAvailable } = useApp();
-  const next = workouts.find((w) => w.scheduled && !w.completed);
-  const activeWeek = next?.week ?? 8;
+  const { workouts, startDate, completedCount, totalMiles, networkAvailable } = useApp();
+  const todayWorkout = scheduledWorkoutForToday(workouts, startDate);
+  const next = todayWorkout?.scheduled && !todayWorkout.completed ? todayWorkout : undefined;
+  const activeWeek = currentPlanWeek(workouts, startDate) ?? todayWorkout?.week ?? 1;
   const weekCompleted = workouts.filter((workout) => workout.week === activeWeek && workout.completed).length;
   const progress = Math.min(100, (weekCompleted / 7) * 100);
   const quote = useGetDailyQuote({ date: localDateKey() }, { query: { queryKey: ['/api/quotes/daily', { date: localDateKey() }], enabled: networkAvailable, retry: false } });
@@ -41,7 +42,7 @@ export default function Today() {
     <View style={[local.quoteBox, { backgroundColor: colors.card }]}><Feather name="message-circle" size={22} color={colors.primary} style={local.quoteIcon} /><Text style={[local.quote, { color: colors.foreground }]}>{quote.data?.quote ?? 'Small steps still move you forward.'}</Text></View>
     <View style={local.statRow}><View style={local.statItem}><Text style={[local.stat, { color: colors.foreground }]}>{weekCompleted}/7</Text><Text style={[local.statLabel, { color: colors.mutedForeground }]}>this week</Text></View><View style={local.statItem}><Text style={[local.stat, { color: colors.foreground }]}>{totalMiles.toFixed(1)}</Text><Text style={[local.statLabel, { color: colors.mutedForeground }]}>miles logged</Text></View><View style={local.statItem}><Text style={[local.stat, { color: colors.foreground }]}>{completedCount}</Text><Text style={[local.statLabel, { color: colors.mutedForeground }]}>total sessions</Text></View></View>
     <SectionTitle>Up next</SectionTitle>
-    {next ? <View style={[local.next, { backgroundColor: colors.primary }]}><View style={local.nextCopy}><Text style={local.nextOverline}>WEEK {next.week} · {next.duration}</Text><Text style={local.nextTitle}>{next.title}</Text><Pressable accessibilityRole="button" onPress={startNext} style={({ pressed }) => [local.startButton, { backgroundColor: colors.background, opacity: pressed ? .75 : 1 }]}><Text style={[local.startText, { color: colors.foreground }]}>Start session</Text><Feather name="arrow-right" size={15} color={colors.foreground} /></Pressable></View><Pressable accessibilityRole="button" accessibilityLabel="Start next session" onPress={startNext} style={({ pressed }) => [local.playButton, { backgroundColor: colors.background, opacity: pressed ? .75 : 1 }]}><Feather name="play" size={24} color={colors.foreground} style={local.playIcon} /></Pressable></View> : <View style={[styles.card, { backgroundColor: colors.card }]}><Text style={[styles.muted, { color: colors.mutedForeground }]}>Your plan is complete. Rest is part of the plan.</Text></View>}
+     {next ? <View style={[local.next, { backgroundColor: colors.primary }]}><View style={local.nextCopy}><Text style={local.nextOverline}>WEEK {next.week} · {next.duration}</Text><Text style={local.nextTitle}>{next.title}</Text><Pressable accessibilityRole="button" onPress={startNext} style={({ pressed }) => [local.startButton, { backgroundColor: colors.background, opacity: pressed ? .75 : 1 }]}><Text style={[local.startText, { color: colors.foreground }]}>Start session</Text><Feather name="arrow-right" size={15} color={colors.foreground} /></Pressable></View><Pressable accessibilityRole="button" accessibilityLabel="Start today’s session" onPress={startNext} style={({ pressed }) => [local.playButton, { backgroundColor: colors.background, opacity: pressed ? .75 : 1 }]}><Feather name="play" size={24} color={colors.foreground} style={local.playIcon} /></Pressable></View> : <View style={[styles.card, { backgroundColor: colors.card }]}><Text style={[styles.muted, { color: colors.mutedForeground }]}>{todayWorkout?.completed ? 'Today’s session is complete. Rest is part of the plan.' : todayWorkout ? 'Today’s session is not scheduled. Check the schedule for plan details.' : 'There is no scheduled session today. Open Schedule to view the plan.'}</Text></View>}
     <View style={[local.planCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={local.planHeader}><View><Text style={[local.planTitle, { color: colors.foreground }]}>Week {activeWeek} progress</Text><Text style={[styles.muted, { color: colors.mutedForeground }]}>{7 - weekCompleted} sessions remaining</Text></View><Text style={[local.percent, { color: colors.accent }]}>{Math.round(progress)}%</Text></View>
       <View style={[local.track, { backgroundColor: colors.secondary }]}><View style={[local.fill, { backgroundColor: colors.accent, width: `${progress}%` }]} /></View>

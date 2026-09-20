@@ -8,3 +8,4 @@
 - [Pnpm lockfile validation](pnpm-lockfile-validation.md) — refresh the existing lockfile with offline pnpm before frozen validation; alternate-version regeneration creates unrelated churn.
 - [Windows pnpm binaries](windows-pnpm-binaries.md) — C:\NE9 may resolve different pnpm versions between shell and preflight, causing node_modules churn or ignored-build warnings.
 - [Stable Android releases](stable-android-releases.md) — tag the tested source and archive the exact standalone APK separately; Git source history alone cannot restore the binary.
+- [Local-first startup](local-first-startup.md) — local plan data must hydrate independently of Clerk and reachability so offline launches remain usable.

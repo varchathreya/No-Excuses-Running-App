@@ -64,8 +64,34 @@ export function workoutDateLabel(day: number, startDate?: string | null) {
     ? date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
 }
+export function planDayForDate(date: Date, startDate?: string | null) {
+  const start = dateFromKey(startDate);
+  if (!start) return null;
+  const startOfStart = new Date(start);
+  startOfStart.setHours(0, 0, 0, 0);
+  const startOfDate = new Date(date);
+  startOfDate.setHours(0, 0, 0, 0);
+  const offset = Math.round((startOfDate.getTime() - startOfStart.getTime()) / 86400000);
+  return offset >= 0 && offset < 56 ? offset + 1 : null;
+}
+export function planWeekForDate(date: Date, startDate?: string | null) {
+  const day = planDayForDate(date, startDate);
+  return day ? Math.floor((day - 1) / 7) + 1 : null;
+}
 export function activeWorkoutWeek(workouts: Workout[]) {
   return workouts.find((item) => item.scheduled && !item.completed)?.week ?? 8;
+}
+export function currentPlanWeek(workouts: Workout[], startDate?: string | null) {
+  return startDate ? planWeekForDate(new Date(), startDate) : activeWorkoutWeek(workouts);
+}
+export function scheduledWorkoutForToday(workouts: Workout[], startDate?: string | null) {
+  if (startDate) {
+    const planDay = planDayForDate(new Date(), startDate);
+    return planDay ? workouts.find((item) => item.day === planDay) : undefined;
+  }
+  const weekday = (new Date().getDay() + 6) % 7;
+  const week = activeWorkoutWeek(workouts);
+  return workouts.find((item) => item.week === week && workoutWeekdayIndex(item.day) === weekday);
 }
 export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number, startDate?: string | null) {
   const plannedDate = workoutDate(day, startDate);
@@ -112,6 +138,7 @@ type AppState = {
   workouts: Workout[];
   regimenId: RegimenId;
   startDate: string | null;
+  hydrated: boolean;
   setRegimen: (regimenId: RegimenId) => void;
   setStartDate: (startDate: string | null) => void;
   activities: Activity[];
@@ -139,7 +166,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [rehabLogs, setRehabLogs] = useState<RehabLog[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [offlineMode, setOfflineModeState] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(Platform.OS === 'web' ? typeof navigator === 'undefined' || navigator.onLine !== false : false);
   useEffect(() => {
     Promise.all([
       AsyncStorage.getItem('no-excuses-workouts'),
@@ -148,7 +175,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.getItem('no-excuses-rehab-logs'),
       AsyncStorage.getItem('no-excuses-regimen'),
       AsyncStorage.getItem('no-excuses-start-date'),
-    ]).then(([savedWorkouts, savedWorkoutsByRegimen, savedActivities, savedRehabLogs, savedRegimen, savedStartDate]) => {
+      AsyncStorage.getItem('no-excuses-offline-mode'),
+    ]).then(([savedWorkouts, savedWorkoutsByRegimen, savedActivities, savedRehabLogs, savedRegimen, savedStartDate, savedOfflineMode]) => {
       const storedRegimen: RegimenId = savedRegimen === '2' ? 2 : 1;
       let parsedByRegimen: WorkoutsByRegimen = {};
       if (savedWorkoutsByRegimen) {
@@ -171,6 +199,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setRegimenIdState(storedRegimen);
       setWorkouts(currentSaved ?? createInitialWorkouts(storedRegimen));
       setStartDateState(savedStartDate && dateFromKey(savedStartDate) ? savedStartDate : null);
+      setOfflineModeState(savedOfflineMode === 'true');
       if (savedActivities) {
         try {
           setActivities(JSON.parse(savedActivities));
@@ -187,9 +216,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       setHydrated(true);
     });
-  }, []);
-  useEffect(() => {
-    AsyncStorage.getItem('no-excuses-offline-mode').then((saved) => saved && setOfflineModeState(saved === 'true'));
   }, []);
   useEffect(() => {
     if (!hydrated) return;
@@ -234,7 +260,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
+       const timeout = setTimeout(() => controller.abort(), 2500);
       const response = await fetch(`https://clients3.google.com/generate_204?ts=${Date.now()}`, {
         method: 'GET',
         cache: 'no-store',
@@ -273,7 +299,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
-    workouts, activities, rehabLogs, regimenId, startDate, setRegimen, setStartDate,
+    workouts, activities, rehabLogs, regimenId, startDate, hydrated, setRegimen, setStartDate,
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
@@ -286,7 +312,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOfflineMode,
     completedCount: workouts.filter((item) => item.completed).length,
     totalMiles: activities.reduce((sum, activity) => sum + activity.distanceMeters / 1609.34, 0),
-  }), [workouts, activities, rehabLogs, regimenId, startDate, setRegimen, setStartDate, offlineMode, isOnline, setOfflineMode]);
+  }), [workouts, activities, rehabLogs, regimenId, startDate, hydrated, setRegimen, setStartDate, offlineMode, isOnline, setOfflineMode]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 export function useApp() { const context = useContext(AppContext); if (!context) throw new Error('useApp must be used inside AppProvider'); return context; }
