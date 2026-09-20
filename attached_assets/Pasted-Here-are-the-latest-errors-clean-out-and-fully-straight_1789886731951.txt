@@ -1,0 +1,19 @@
+Here are the latest errors: 
+
+clean out and fully straighten out, from the root structure of the system, the entire regimen scheduling system. Here are the errors I've noticed due to the current bad design of the entire backend app design:
+
+- The "today" page always shows the first exercise session of the week 1 of the regimen no matter what the current date's actual exercise actually is
+- clicking play on the today page's displayed exericse shows that exercise from how many ever weeks ago, which obviously the rehab player doesn't allow the user to begin but it shouldn't be showing on the today page in the first place
+- switching from regimen 1 to 2 on the settings page results in an in-app modal dialog saying "please wait until Week 1, Tuesday" even though I marked the start date to be september 1st so this already makes no sense for it to say week 1 and also there should be no modal dialog at all that pops up when changing training regimens, that makes no sense. 
+- the schedule page doesn't automatically switch to the appropriate week, which it should. for example I set the start date in the settings page to september first. so whenever I click the schedule page, it should automatically switch to the appropriate week relative to the regimen start date and today's date, which in this case should be week 3
+
+
+Finally here are some minor aesthetics changes:
+- the font sizing is a little off on the in-app modal dialog where it says "please wait until <date>", the word "week" is on one line and the week number breaks off into the next line. this looks weird, please change it.
+- Reduce the amount of text on the schedule page's exercise session list. Make it so that the square with the day of week abbreviation, a simple name for the exercise session type (Run vs Strength vs Rehab) and the date are all that shows, and everything else is moved to an extra button at the top right corner of each exercise session's box labeled with an "i" for information. When they click this blue "i", there should be a modal dialog that pops up with details on the exercise (short description, metrics such as mileage or exercise list etc)
+- make the start-page loading bar smaller length-wise and use the following logic to make it work:
+
+run a timer every time the app is opened that goes from the moment the loading bar first appears to the millisecond it disappears. Add this to a running list of loading times and average that time. Then set the loading bar to move just fast enough to become full when the app is predicted (based on the running average) to be done loading. The key is that I want the loading graphics of the loading bar to be smooth not choppy. This averaging and re-setting the loading bar runtime should obviously happen automatically via code as a programmed feature of the app.
+
+
+the last major issue is that the app won't start when offline again. Seriously review the first iteration of a standalone apk that we built, check what worked there, and make sure to implement it here without breaking any functionality. The way I see it, all the offline-capable features of this app should be stored locally in some easy-to-read-by-the-app way and the app should quickly read that and launch, making sure to grey out the wifi-requireing features. Matter of fact, make two running averages for the loading bar, one for offline and one for online app-launching 
