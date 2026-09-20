@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import { Screen, Header, Button, Pill, SectionTitle, styles } from '@/components/Screen';
@@ -70,6 +70,7 @@ export default function Run() {
   const [showWrongDay, setShowWrongDay] = useState(wrongDay);
   const [ignoreRequestedWorkout, setIgnoreRequestedWorkout] = useState(false);
   const [showStartChoice, setShowStartChoice] = useState(false);
+  const [gpsReady, setGpsReady] = useState(false);
   const linkedWorkout = linkedWorkoutId ? workouts.find((item) => item.id === linkedWorkoutId) : undefined;
   const minimumRunSeconds = linkedWorkout?.type === 'run' ? linkedWorkout.minimumDurationSeconds ?? null : null;
   const watch = useRef<Location.LocationSubscription | null>(null);
@@ -125,7 +126,14 @@ export default function Run() {
 
     const current = pointsRef.current;
     const previous = current[current.length - 1];
-    if (!previous || next.timestamp <= previous.timestamp || (next.accuracy ?? 999) > 25) return;
+    if (!previous) {
+      pointsRef.current = [next];
+      setPoints([next]);
+      setMeters(0);
+      setGpsReady(true);
+      return;
+    }
+    if (next.timestamp <= previous.timestamp || (next.accuracy ?? 999) > 25) return;
 
     const delta = distance(previous, next);
     const elapsed = (next.timestamp - previous.timestamp) / 1000;
@@ -152,7 +160,7 @@ export default function Run() {
 
   const subscribeToLocation = async () => {
     const subscription = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 2 },
+      { accuracy: Location.Accuracy.High, timeInterval: 1000, distanceInterval: 2 },
       handleLocation,
     );
     if (runningRef.current) {
@@ -174,21 +182,30 @@ export default function Run() {
         Alert.alert('Location needed', 'Allow location access to record your route and calculate distance.');
         return;
       }
-      const initial = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const first: RoutePoint = {
+      if (!(await Location.hasServicesEnabledAsync())) {
+        Alert.alert('Location services off', 'Turn on Location Services, then try starting the run again.');
+        return;
+      }
+
+      const initial = await Location.getLastKnownPositionAsync({
+        maxAge: 15 * 60 * 1000,
+        requiredAccuracy: 1000,
+      });
+      const first = initial ? {
         latitude: initial.coords.latitude,
         longitude: initial.coords.longitude,
         altitude: initial.coords.altitude ?? undefined,
         accuracy: initial.coords.accuracy ?? undefined,
         timestamp: initial.timestamp,
-      };
-      pointsRef.current = [first];
+      } : null;
+      pointsRef.current = first ? [first] : [];
       metersRef.current = 0;
-      setPoints([first]);
+      setPoints(first ? [first] : []);
       setMeters(0);
       setSeconds(0);
       setMoving(false);
       setLivePace(null);
+      setGpsReady(!!first);
       setPaused(false);
       setCompletedActivity(null);
       setLinkedWorkoutId(linkedWorkout?.id);
@@ -202,7 +219,8 @@ export default function Run() {
     } catch {
       runningRef.current = false;
       setRunning(false);
-      Alert.alert('GPS unavailable', 'No Excuses could not get a reliable location. Check Location Services and try again outdoors.');
+      setGpsReady(false);
+      Alert.alert('GPS unavailable', 'No Excuses could not start location tracking. Check Location Services and try again outdoors.');
     } finally {
       startingRef.current = false;
       setStarting(false);
@@ -231,6 +249,7 @@ export default function Run() {
       setPaused(false);
       setMoving(false);
       setLivePace(null);
+      setGpsReady(false);
       paceSamples.current = [];
       smoothedPace.current = null;
       await subscribeToLocation();
@@ -239,6 +258,7 @@ export default function Run() {
       runningRef.current = false;
       setRunning(false);
       setPaused(true);
+      setGpsReady(false);
       Alert.alert('GPS unavailable', 'No Excuses could not resume location tracking. Check Location Services and try again outdoors.');
     } finally {
       startingRef.current = false;
@@ -284,6 +304,7 @@ export default function Run() {
   const reset = () => {
     setCompletedActivity(null);
     setPaused(false);
+    setGpsReady(false);
     pointsRef.current = [];
     metersRef.current = 0;
     setPoints([]);
@@ -398,6 +419,25 @@ export default function Run() {
         </>
       )}
 
+      {(starting || (running && !gpsReady)) && (
+        <View style={[local.gpsLoading, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={local.gpsLoadingHeader}>
+            <View style={local.gpsLoadingCopy}>
+              <Text style={[local.metricLabel, { color: colors.primary }]}>
+                {starting ? 'STARTING GPS' : 'ACQUIRING GPS'}
+              </Text>
+              <Text style={[styles.muted, { color: colors.mutedForeground }]}>
+                {starting ? 'Preparing location tracking…' : 'Waiting for a reliable satellite signal…'}
+              </Text>
+            </View>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+          <View style={[local.gpsLoadingTrack, { backgroundColor: colors.secondary }]}>
+            <View style={[local.gpsLoadingFill, { backgroundColor: colors.primary }]} />
+          </View>
+        </View>
+      )}
+
       <View style={local.controls}>
         {running ? (
           <>
@@ -468,6 +508,11 @@ const local = StyleSheet.create({
   minimumTime: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 16, marginTop: 16 },
   minimumTimeCopy: { gap: 4 },
   minimumTimeValue: { fontFamily: 'Inter_700Bold', fontSize: 30, letterSpacing: -1 },
+  gpsLoading: { borderWidth: 1, borderRadius: 18, padding: 15, marginBottom: 14 },
+  gpsLoadingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  gpsLoadingCopy: { flex: 1, gap: 4 },
+  gpsLoadingTrack: { height: 6, borderRadius: 4, overflow: 'hidden', marginTop: 13 },
+  gpsLoadingFill: { height: '100%', width: '38%', borderRadius: 4 },
   completedCard: { borderRadius: 24, padding: 20, marginBottom: 14 },
   completedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   completedTitle: { fontFamily: 'Inter_700Bold', fontSize: 24, marginTop: 6 },

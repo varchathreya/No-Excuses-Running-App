@@ -53,7 +53,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <Header eyebrow="PLAN CONTROL" title="Settings" titleIcon="settings" />
+      <Header eyebrow="PLAN CONTROL" title="Settings" />
 
       <View style={styles.column}>
         <View style={styles.sectionHeader}>
@@ -249,7 +249,7 @@ function RegimenOption({
 }
 
 const styles = StyleSheet.create({
-  column: { width: '92%', maxWidth: 430, alignSelf: 'flex-end', paddingBottom: 28 },
+  column: { width: '100%', maxWidth: 430, alignSelf: 'stretch', paddingBottom: 28 },
   sectionHeader: { marginBottom: 10 },
   sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.45 },
   sectionHint: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, marginTop: 4 },

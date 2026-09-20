@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,8 +20,9 @@ import {
   setAuthTokenGetter,
   setBaseUrl,
 } from '@workspace/api-client-react';
-import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
+import { useColors } from '@/hooks/useColors';
 
 function getApiBaseUrl() {
   const configured = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_DOMAIN;
@@ -71,6 +73,30 @@ function ApiAuthentication() {
   return null;
 }
 
+function AuthBootstrap({ children }: { children: React.ReactNode }) {
+  const colors = useColors();
+  const { isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return (
+      <View style={[authLoading.screen, { backgroundColor: colors.background }]}>
+        <View style={[authLoading.mark, { backgroundColor: colors.primary }]}>
+          <Text style={[authLoading.markText, { color: colors.primaryForeground }]}>NE</Text>
+        </View>
+        <Text style={[authLoading.eyebrow, { color: colors.primary }]}>NO EXCUSES</Text>
+        <Text style={[authLoading.title, { color: colors.foreground }]}>Getting your plan ready.</Text>
+        <Text style={[authLoading.message, { color: colors.mutedForeground }]}>Checking your saved session…</Text>
+        <ActivityIndicator color={colors.primary} style={authLoading.spinner} />
+        <View style={[authLoading.track, { backgroundColor: colors.secondary }]}>
+          <View style={[authLoading.fill, { backgroundColor: colors.primary }]} />
+        </View>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -95,7 +121,7 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache} proxyUrl={proxyUrl}>
-      <ClerkLoaded>
+      <AuthBootstrap>
         <ApiAuthentication />
         <SafeAreaProvider>
           <ErrorBoundary>
@@ -110,7 +136,19 @@ export default function RootLayout() {
             </QueryClientProvider>
           </ErrorBoundary>
         </SafeAreaProvider>
-      </ClerkLoaded>
+      </AuthBootstrap>
     </ClerkProvider>
   );
 }
+
+const authLoading = StyleSheet.create({
+  screen: { flex: 1, justifyContent: 'center', paddingHorizontal: 28 },
+  mark: { width: 58, height: 58, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
+  markText: { fontFamily: 'Inter_700Bold', fontSize: 19, letterSpacing: 1 },
+  eyebrow: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 2.2, marginBottom: 9 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 30, lineHeight: 36 },
+  message: { fontFamily: 'Inter_400Regular', fontSize: 15, lineHeight: 22, marginTop: 12 },
+  spinner: { alignSelf: 'flex-start', marginTop: 24 },
+  track: { height: 6, borderRadius: 4, overflow: 'hidden', marginTop: 18, width: '100%' },
+  fill: { height: '100%', width: '35%', borderRadius: 4 },
+});

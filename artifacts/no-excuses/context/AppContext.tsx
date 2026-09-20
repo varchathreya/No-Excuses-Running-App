@@ -69,10 +69,15 @@ export function activeWorkoutWeek(workouts: Workout[]) {
 }
 export function isWorkoutAvailableToday(day: number, week?: number, activeWeek?: number, startDate?: string | null) {
   const plannedDate = workoutDate(day, startDate);
-  const matchesDate = plannedDate
-    ? dateKeyFromDate(plannedDate) === dateKeyFromDate(new Date())
-    : workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7);
-  return matchesDate
+  if (plannedDate) {
+    // Once a custom start date is selected, the calendar date is the source
+    // of truth. The plan no longer has to begin on a Monday, and its week
+    // number is already encoded by the day offset from that start date.
+    return dateKeyFromDate(plannedDate) === dateKeyFromDate(new Date());
+  }
+
+  // Preserve the original Monday-based behavior until a start date is set.
+  return workoutWeekdayIndex(day) === ((new Date().getDay() + 6) % 7)
     && (week === undefined || activeWeek === undefined || week === activeWeek);
 }
 
