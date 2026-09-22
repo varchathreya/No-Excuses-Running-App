@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Redirect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuth, useSSO } from '@clerk/expo';
 import * as WebBrowser from 'expo-web-browser';
 import { useColors } from '@/hooks/useColors';
@@ -27,6 +27,7 @@ export default function SignIn() {
   const { startSSOFlow } = useSSO();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const redirecting = useRef(false);
 
   const signInWithGoogle = useCallback(async () => {
     setBusy(true);
@@ -50,7 +51,6 @@ export default function SignIn() {
           if (session?.currentTask) {
             throw new Error('Your account requires an additional verification step.');
           }
-           router.replace('/connect-calendar');
         },
       });
     } catch (cause) {
@@ -61,8 +61,19 @@ export default function SignIn() {
     }
   }, [router, startSSOFlow]);
 
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      redirecting.current = false;
+      return;
+    }
+    if (redirecting.current) return;
+    redirecting.current = true;
+    router.replace('/connect-calendar');
+  }, [isLoaded, isSignedIn, router]);
+
   if (!isLoaded) return null;
-  if (isSignedIn) return <Redirect href="/connect-calendar" />;
+  if (isSignedIn) return null;
 
   return (
     <View style={[local.screen, { backgroundColor: colors.background }]}>
