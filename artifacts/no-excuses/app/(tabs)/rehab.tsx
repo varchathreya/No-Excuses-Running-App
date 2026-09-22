@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import { Screen, Header, Button, SectionTitle, styles } from '@/components/Screen';
@@ -16,6 +16,7 @@ type IsometricExercise = {
   title: string;
   detail: string;
   cue: string;
+  videoUrl: string;
   holdSeconds: number;
   sets: number;
 };
@@ -26,6 +27,7 @@ type RepExercise = {
   title: string;
   detail: string;
   cue: string;
+  videoUrl: string;
   reps: number;
   sets: number;
 };
@@ -39,23 +41,34 @@ const TIMER_RADIUS = (TIMER_SIZE - TIMER_STROKE) / 2;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 const REST_SECONDS = 120;
 
+const REHAB_VIDEO_URLS: Record<string, string> = {
+  'wall-sit-hold': 'https://www.youtube.com/watch?v=sT0jUNnb9dk',
+  'single-leg-bridge-hold': 'https://www.youtube.com/watch?v=EuzLAQj1gWQ',
+  'lunge-hold': 'https://www.youtube.com/watch?v=G5fqHk7zF3M',
+  'isometric-calf-hold': 'https://www.youtube.com/watch?v=arLsa_isSOw',
+  'goblet-squats': 'https://www.youtube.com/watch?v=nfX7IFK9UNI',
+  'romanian-deadlifts': 'https://www.youtube.com/watch?v=yjqRj72AuaE',
+  'single-leg-deadlifts': 'https://www.youtube.com/watch?v=Zfr6wizR8rs',
+  'step-ups': 'https://www.youtube.com/watch?v=mmeSrU2nu8Q',
+};
+
 function routineForWorkout(workout?: Workout): RehabExercise[] {
   if (workout?.kind === 'isometric') {
     const addedHoldTime = workout.week >= 2 ? 5 : 0;
     const bandNote = workout.rehabRoutine === 2 ? ' Use light band resistance if pain-free.' : '';
     return [
-      { mode: 'isometric', key: 'wall-sit-hold', title: 'Wall Sit Holds', detail: `3 × ${30 + addedHoldTime} sec`, cue: 'Keep the knees tracking over the second toe and hold a quiet, steady position.', holdSeconds: 30 + addedHoldTime, sets: 3 },
-      { mode: 'isometric', key: 'single-leg-bridge-hold', title: 'Single-Leg Bridge Holds', detail: `3 × ${30 + addedHoldTime} sec`, cue: 'Keep the pelvis level and squeeze the glute without arching the low back.', holdSeconds: 30 + addedHoldTime, sets: 3 },
-      { mode: 'isometric', key: 'lunge-hold', title: 'Lunge Holds', detail: `3 × ${20 + addedHoldTime} sec`, cue: 'Use a stable stance and keep the front knee aligned with the foot.', holdSeconds: 20 + addedHoldTime, sets: 3 },
-      { mode: 'isometric', key: 'isometric-calf-hold', title: 'Isometric Calf Holds', detail: '4 × 30 sec', cue: `Rise into a controlled calf hold with a neutral ankle.${bandNote}`, holdSeconds: 30, sets: 4 },
+      { mode: 'isometric', key: 'wall-sit-hold', title: 'Wall Sit Holds', detail: `3 × ${30 + addedHoldTime} sec`, cue: 'Keep the knees tracking over the second toe and hold a quiet, steady position.', videoUrl: REHAB_VIDEO_URLS['wall-sit-hold'], holdSeconds: 30 + addedHoldTime, sets: 3 },
+      { mode: 'isometric', key: 'single-leg-bridge-hold', title: 'Single-Leg Bridge Holds', detail: `3 × ${30 + addedHoldTime} sec`, cue: 'Keep the pelvis level and squeeze the glute without arching the low back.', videoUrl: REHAB_VIDEO_URLS['single-leg-bridge-hold'], holdSeconds: 30 + addedHoldTime, sets: 3 },
+      { mode: 'isometric', key: 'lunge-hold', title: 'Lunge Holds', detail: `3 × ${20 + addedHoldTime} sec`, cue: 'Use a stable stance and keep the front knee aligned with the foot.', videoUrl: REHAB_VIDEO_URLS['lunge-hold'], holdSeconds: 20 + addedHoldTime, sets: 3 },
+      { mode: 'isometric', key: 'isometric-calf-hold', title: 'Isometric Calf Holds', detail: '4 × 30 sec', cue: `Rise into a controlled calf hold with a neutral ankle.${bandNote}`, videoUrl: REHAB_VIDEO_URLS['isometric-calf-hold'], holdSeconds: 30, sets: 4 },
     ];
   }
   if (workout?.kind === 'hsr') {
     return [
-      { mode: 'reps', key: 'goblet-squats', title: 'Goblet Squats', detail: '3 × 10 reps', cue: 'Use a controlled tempo and keep the knee tracking over the second toe.', reps: 10, sets: 3 },
-      { mode: 'reps', key: 'romanian-deadlifts', title: 'Romanian Deadlifts', detail: '3 × 10 reps', cue: 'Hinge from the hips, keep the spine long, and move slowly through the range.', reps: 10, sets: 3 },
-      { mode: 'reps', key: 'single-leg-deadlifts', title: 'Single-Leg Deadlifts', detail: '3 × 10 reps', cue: 'Use bodyweight or a light dumbbell and prioritize balance over load.', reps: 10, sets: 3 },
-      { mode: 'reps', key: 'step-ups', title: 'Step-Ups', detail: '3 × 10 reps', cue: 'Drive through the whole foot and control the step down.', reps: 10, sets: 3 },
+      { mode: 'reps', key: 'goblet-squats', title: 'Goblet Squats', detail: '3 × 10 reps', cue: 'Use a controlled tempo and keep the knee tracking over the second toe.', videoUrl: REHAB_VIDEO_URLS['goblet-squats'], reps: 10, sets: 3 },
+      { mode: 'reps', key: 'romanian-deadlifts', title: 'Romanian Deadlifts', detail: '3 × 10 reps', cue: 'Hinge from the hips, keep the spine long, and move slowly through the range.', videoUrl: REHAB_VIDEO_URLS['romanian-deadlifts'], reps: 10, sets: 3 },
+      { mode: 'reps', key: 'single-leg-deadlifts', title: 'Single-Leg Deadlifts', detail: '3 × 10 reps', cue: 'Use bodyweight or a light dumbbell and prioritize balance over load.', videoUrl: REHAB_VIDEO_URLS['single-leg-deadlifts'], reps: 10, sets: 3 },
+      { mode: 'reps', key: 'step-ups', title: 'Step-Ups', detail: '3 × 10 reps', cue: 'Drive through the whole foot and control the step down.', videoUrl: REHAB_VIDEO_URLS['step-ups'], reps: 10, sets: 3 },
     ];
   }
   return [];
@@ -75,6 +88,26 @@ function SegmentedProgress({ completed, total, color, borderColor }: { completed
 
 function formatRest(seconds: number) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function YouTubeMark({ url, exerciseTitle, disabled = false }: { url: string; exerciseTitle: string; disabled?: boolean }) {
+  const openVideo = () => {
+    void Linking.openURL(url).catch(() => undefined);
+  };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Watch ${exerciseTitle} instruction on YouTube`}
+      disabled={disabled}
+      onPress={openVideo}
+      hitSlop={6}
+      style={({ pressed }) => [local.youtubeButton, { opacity: disabled ? 0.4 : pressed ? 0.68 : 1 }]}
+    >
+      <View style={local.youtubeMark}>
+        <View style={local.youtubeTriangle} />
+      </View>
+    </Pressable>
+  );
 }
 
 export default function Rehab() {
@@ -225,7 +258,7 @@ export default function Rehab() {
 
   if (requestedRestDay) {
     return (
-      <Screen scroll={false}>
+      <Screen>
         <View style={[local.restContent, { paddingBottom: insets.bottom + 24 }]}>
           <Header eyebrow="RECOVERY DAY" title="Full rest" />
           {workout && (
@@ -324,6 +357,7 @@ export default function Rehab() {
                 </View>
               </Pressable>
               <View style={local.exerciseActions}>
+                <YouTubeMark url={item.videoUrl} exerciseTitle={item.title} disabled={unavailable} />
                 {item.mode === 'reps' && (
                   <Pressable accessibilityLabel={`View history for ${item.title}`} onPress={() => setHistoryExercise(item)} style={[local.iconButton, { borderColor: colors.border, backgroundColor: colors.card }]}>
                     <Feather name="bar-chart-2" size={16} color={colors.primary} />
@@ -347,8 +381,11 @@ export default function Rehab() {
         >
           {currentIso && (
             <>
-              <Text style={[local.playerEyebrow, { color: colors.primary }]}>EXERCISE {active + 1} · ISOMETRIC HOLD</Text>
-              <Text style={[local.playerTitle, { color: colors.foreground }]}>{currentIso.title}</Text>
+               <Text style={[local.playerEyebrow, { color: colors.primary }]}>EXERCISE {active + 1} · ISOMETRIC HOLD</Text>
+               <View style={local.playerTitleRow}>
+                 <Text style={[local.playerTitle, { color: colors.foreground }]}>{currentIso.title}</Text>
+                 <YouTubeMark url={currentIso.videoUrl} exerciseTitle={currentIso.title} disabled={unavailable} />
+               </View>
               <Text style={[styles.muted, { color: colors.mutedForeground }]}>{currentIso.cue}</Text>
               <SegmentedProgress completed={currentIsoSets.filter(Boolean).length} total={currentIso.sets} color={colors.accent} borderColor={colors.border} />
               <View style={local.timer}>
@@ -388,8 +425,11 @@ export default function Rehab() {
             <>
               <View style={local.repHeader}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[local.playerEyebrow, { color: colors.primary }]}>EXERCISE {active + 1} · SETS + REPS</Text>
-                  <Text style={[local.playerTitle, { color: colors.foreground }]}>{currentRep.title}</Text>
+                   <Text style={[local.playerEyebrow, { color: colors.primary }]}>EXERCISE {active + 1} · SETS + REPS</Text>
+                   <View style={local.playerTitleRow}>
+                     <Text style={[local.playerTitle, { color: colors.foreground }]}>{currentRep.title}</Text>
+                     <YouTubeMark url={currentRep.videoUrl} exerciseTitle={currentRep.title} disabled={unavailable} />
+                   </View>
                 </View>
                 <Pressable accessibilityLabel={`View history for ${currentRep.title}`} onPress={() => setHistoryExercise(currentRep)} style={[local.historyButton, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
                   <Feather name="bar-chart-2" size={18} color={colors.primary} />
@@ -501,7 +541,7 @@ export default function Rehab() {
 const local = StyleSheet.create({
   scroll: { flex: 1 },
   content: { flexGrow: 1 },
-  restContent: { flex: 1, paddingHorizontal: 20 },
+  restContent: {},
   restCard: { borderRadius: 22, borderWidth: 1, padding: 22, marginBottom: 18, gap: 12 },
   restIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   emptyCard: { borderRadius: 22, borderWidth: 1, padding: 22, gap: 12 },
@@ -515,6 +555,9 @@ const local = StyleSheet.create({
   exercise: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 17, padding: 12, marginBottom: 8 },
   exerciseMain: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   exerciseActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  youtubeButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  youtubeMark: { width: 30, height: 21, borderRadius: 6, backgroundColor: '#FF0000', alignItems: 'center', justifyContent: 'center' },
+  youtubeTriangle: { marginLeft: 2, width: 0, height: 0, borderTopWidth: 5.5, borderBottomWidth: 5.5, borderLeftWidth: 9, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: '#FFFFFF' },
   check: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   exerciseTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, marginBottom: 3 },
   startButton: { minWidth: 64, minHeight: 38, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
@@ -523,6 +566,7 @@ const local = StyleSheet.create({
   player: { borderRadius: 22, padding: 19, marginTop: 18, marginBottom: 16 },
   playerEyebrow: { fontFamily: 'Inter_700Bold', letterSpacing: 1.3, fontSize: 10 },
   playerTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, marginVertical: 10 },
+  playerTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   segmentRow: { flexDirection: 'row', gap: 6, marginTop: 18 },
   segment: { flex: 1, height: 10, borderWidth: 1, borderStyle: 'solid', borderRadius: 4, padding: 2 },
   segmentFill: { flex: 1, borderRadius: 2 },

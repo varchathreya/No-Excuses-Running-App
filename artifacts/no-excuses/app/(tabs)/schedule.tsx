@@ -84,12 +84,31 @@ function formatEventTime(start?: string) {
 }
 
 function sessionType(item: Workout) {
+  if (item.kind === 'rest') return 'Rest day';
   if (item.type === 'rehab') return 'Rehab';
   if (item.kind === 'hsr') return 'Strength';
   return 'Run';
 }
 
-function WorkoutRow({ item, startDate, onInfoRequested }: { item: Workout; startDate?: string | null; onInfoRequested: (item: Workout) => void }) {
+function WorkoutRow({
+  item,
+  startDate,
+  booked,
+  networkAvailable,
+  onInfoRequested,
+  onStartRequested,
+  onBookRequested,
+  onAlarmRequested,
+}: {
+  item: Workout;
+  startDate?: string | null;
+  booked: boolean;
+  networkAvailable: boolean;
+  onInfoRequested: (item: Workout) => void;
+  onStartRequested: (item: Workout) => void;
+  onBookRequested: (item: Workout) => void;
+  onAlarmRequested: (item: Workout) => void;
+}) {
   const colors = useColors();
   const weekday = workoutWeekdayName(item.day, startDate);
   return (
@@ -110,6 +129,36 @@ function WorkoutRow({ item, startDate, onInfoRequested }: { item: Workout; start
           style={({ pressed }) => [local.infoButton, { backgroundColor: colors.secondary, opacity: pressed ? 0.7 : 1 }]}
         >
           <Feather name="info" size={18} color={colors.primary} />
+        </Pressable>
+      </View>
+      <View style={local.actions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Start ${item.title}`}
+          onPress={() => onStartRequested(item)}
+          style={({ pressed }) => [local.smallButton, { backgroundColor: colors.primary, borderColor: colors.primary, opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Feather name="play" size={13} color={colors.primaryForeground} />
+          <Text style={[local.smallText, { color: colors.primaryForeground }]}>START</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${booked ? 'Booked' : 'Book'} ${item.title} in Google Calendar`}
+          disabled={!networkAvailable}
+          onPress={() => onBookRequested(item)}
+          style={({ pressed }) => [local.smallButton, { backgroundColor: colors.secondary, borderColor: colors.border, opacity: !networkAvailable ? 0.42 : pressed ? 0.75 : 1 }]}
+        >
+          <Feather name="calendar" size={13} color={colors.foreground} />
+          <Text style={[local.smallText, { color: colors.foreground }]}>{booked ? 'BOOKED' : 'BOOK'}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={item.alarmSet ? `Alarm marked as set for ${item.title}` : `Set alarm for ${item.title}`}
+          onPress={() => onAlarmRequested(item)}
+          style={({ pressed }) => [local.smallButton, { backgroundColor: colors.secondary, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Feather name="clock" size={13} color={colors.foreground} />
+          <Text style={[local.smallText, { color: colors.foreground }]}>{item.alarmSet ? 'ALARM SET' : 'ALARM'}</Text>
         </Pressable>
       </View>
     </View>
@@ -380,7 +429,17 @@ export default function Schedule() {
     <Text style={[styles.muted, { color: colors.mutedForeground, marginBottom: 16 }]}>Book opens Google Calendar’s event editor so you can choose the final date and time. Booked times can only sync from the connected calendar account shown above.</Text>
      <SectionTitle>Week {week} plan · {visible.length} sessions</SectionTitle>
      {visible.map((item) => (
-       <WorkoutRow key={item.id} item={item} startDate={startDate} onInfoRequested={setInfoWorkout} />
+        <WorkoutRow
+          key={item.id}
+          item={item}
+          startDate={startDate}
+          booked={calendar.data?.events.some((event) => event.summary.includes(`W${item.week}D${item.day}`)) ?? false}
+          networkAvailable={networkAvailable}
+          onInfoRequested={setInfoWorkout}
+          onStartRequested={navigateToWorkout}
+          onBookRequested={(workout) => openCalendar(workout, startDate)}
+          onAlarmRequested={requestAlarm}
+        />
      ))}
       <WorkoutInfoModal
         item={infoWorkout}

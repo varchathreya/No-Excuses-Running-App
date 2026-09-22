@@ -1,9 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { disconnectCalendarOAuth } from '@workspace/api-client-react';
 import { Header, Screen } from '@/components/Screen';
 import { dateFromKey, dateKeyFromDate, useApp } from '@/context/AppContext';
 import { useColors } from '@/hooks/useColors';
+import { useAuth } from '@clerk/expo';
+import { getAuthorization } from '@/lib/api-auth';
+import { runAuthorized } from '@/lib/auth-flow';
 
 type CalendarDay = Date | null;
 
@@ -30,9 +34,11 @@ function buildCalendarDays(month: Date): CalendarDay[] {
 
 export default function SettingsScreen() {
   const colors = useColors();
-  const { regimenId, setRegimen, startDate, setStartDate } = useApp();
+  const { regimenId, setRegimen, startDate, setStartDate, resetApp, networkAvailable } = useApp();
+  const { isLoaded: authLoaded, isSignedIn, getToken } = useAuth();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => dateFromKey(startDate) ?? new Date());
+  const [resetting, setResetting] = useState(false);
   const calendarDays = useMemo(() => buildCalendarDays(calendarMonth), [calendarMonth]);
   const selectedDateKey = startDate;
   const todayKey = dateKeyFromDate(new Date());
@@ -51,11 +57,70 @@ export default function SettingsScreen() {
     setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
   };
 
+  const confirmReset = () => {
+    Alert.alert(
+      'Reset app?',
+      'This clears saved runs, rehab logs, workouts, alarms, regimen choices, and the plan start date. It also disconnects Google Calendar when you are signed in and online.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset app',
+          style: 'destructive',
+          onPress: async () => {
+            setResetting(true);
+            let calendarDisconnected = true;
+            if (isSignedIn) {
+              if (authLoaded && networkAvailable) {
+                try {
+                  await runAuthorized(
+                    () => getAuthorization(getToken),
+                    (authorization) => disconnectCalendarOAuth({ headers: authorization }),
+                  );
+                } catch {
+                  calendarDisconnected = false;
+                }
+              } else {
+                calendarDisconnected = false;
+              }
+            }
+            resetApp();
+            setResetting(false);
+            Alert.alert(
+              calendarDisconnected ? 'App reset' : 'App reset locally',
+              calendarDisconnected
+                ? 'Saved runs and plan data were cleared, and Google Calendar was disconnected.'
+                : 'Saved runs and plan data were cleared. Connect to the internet and disconnect Google Calendar from Schedule to finish.',
+            );
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <Screen>
       <Header eyebrow="PLAN CONTROL" title="Settings" />
 
       <View style={styles.column}>
+        <View style={[styles.resetCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.resetIcon, { backgroundColor: colors.secondary }]}>
+            <Feather name="refresh-ccw" size={19} color={colors.destructive} />
+          </View>
+          <View style={styles.resetCopy}>
+            <Text style={[styles.resetTitle, { color: colors.foreground }]}>Reset app</Text>
+            <Text style={[styles.resetDescription, { color: colors.mutedForeground }]}>Clear all saved runs and plan data, then disconnect Google Calendar.</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Reset app"
+            disabled={resetting}
+            onPress={confirmReset}
+            style={({ pressed }) => [styles.resetButton, { borderColor: colors.destructive, opacity: resetting ? 0.42 : pressed ? 0.7 : 1 }]}
+          >
+            <Text style={[styles.resetButtonText, { color: colors.destructive }]}>{resetting ? 'RESETTING…' : 'RESET'}</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>START DATE</Text>
           <Text style={[styles.sectionHint, { color: colors.mutedForeground }]}>Day 1 of your 56-day plan</Text>
@@ -250,6 +315,13 @@ function RegimenOption({
 
 const styles = StyleSheet.create({
   column: { width: '100%', maxWidth: 430, alignSelf: 'stretch', paddingBottom: 28 },
+  resetCard: { borderWidth: 1, borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 26 },
+  resetIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  resetCopy: { flex: 1, gap: 3 },
+  resetTitle: { fontFamily: 'Inter_700Bold', fontSize: 14 },
+  resetDescription: { fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 },
+  resetButton: { minHeight: 34, borderWidth: 1, borderRadius: 9, paddingHorizontal: 9, alignItems: 'center', justifyContent: 'center' },
+  resetButtonText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.7 },
   sectionHeader: { marginBottom: 10 },
   sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1.45 },
   sectionHint: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, marginTop: 4 },
