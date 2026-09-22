@@ -153,6 +153,7 @@ type AppState = {
   isOnline: boolean;
   networkAvailable: boolean;
   setOfflineMode: (enabled: boolean) => void;
+  resetApp: () => void;
   completedCount: number;
   totalMiles: number;
 };
@@ -274,6 +275,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStartDateState(nextStartDate);
     void AsyncStorage.setItem('no-excuses-start-date', nextStartDate ?? '');
   }, []);
+  const resetApp = useCallback(() => {
+    hasLocalEditsRef.current = true;
+    setRegimenIdState(1);
+    setWorkoutsByRegimen({});
+    setWorkouts(createInitialWorkouts(1));
+    setStartDateState(null);
+    setActivities([]);
+    setRehabLogs([]);
+    setOfflineModeState(false);
+    setHydrated(true);
+    setStorageReady(true);
+    void AsyncStorage.multiRemove([
+      'no-excuses-workouts',
+      'no-excuses-workouts-by-regimen',
+      'no-excuses-activities',
+      'no-excuses-rehab-logs',
+      'no-excuses-regimen',
+      'no-excuses-start-date',
+      'no-excuses-offline-mode',
+      'no-excuses-bootstrap-loading-times',
+    ]);
+  }, []);
   const setRegimen = useCallback((nextRegimen: RegimenId) => {
     if (nextRegimen === regimenId) return;
     hasLocalEditsRef.current = true;
@@ -332,7 +355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [checkConnectivity]);
   const update = (fn: (items: Workout[]) => Workout[]) => { hasLocalEditsRef.current = true; setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
-    workouts, activities, rehabLogs, regimenId, startDate, hydrated, setRegimen, setStartDate,
+    workouts, activities, rehabLogs, regimenId, startDate, hydrated, setRegimen, setStartDate, resetApp,
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
