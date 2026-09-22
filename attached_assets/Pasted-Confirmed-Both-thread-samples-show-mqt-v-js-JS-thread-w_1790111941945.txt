@@ -1,0 +1,16 @@
+Confirmed. Both thread samples show `mqt_v_js` (JS thread) with identical CPU time (`0:00.58`) a full second apart — **JS is completely idle/stalled** — while `RenderThread` spins at ~36%. The splash text reads "Checking your saved session…" (the *online* string), meaning `mode` has already flipped to `'online'`.
+
+## Report — code 4 build & Samsung test
+
+**APK path:** `C:\NE12\releases\no-excuses-1.0.0-code4.apk` (129,519,368 B)
+
+**Package/version (verified):** `com.noexcuses.app` · `versionName 1.0.0` · `versionCode 4` · minSdk 24 / targetSdk 36. Confirmed via `aapt2 dump badging` and after install via `dumpsys` (versionCode=4, lastUpdateTime 02:44:23). Standalone release APK (`assembleRelease`), signed V2 with the restored debug keystore (`SHA-1 5e8f16…`) — **matches the installed cert**, so `adb install -r` → **Success**, preserving data.
+
+**SHA-256:** `A91E5B8AFB99660DB306613219D30837188E254C0EF43A0CE6425F7FAE72F9CC`
+
+**Samsung result — FAILED (hang persists):**
+- First startup after install on clean state: stuck on splash >60 s — same signature as v3: JS idle, RenderThread ~36%, no crash, `ReactNativeJS: Running "main"` + Clerk dev-keys warning only.
+- The `74e7694` fix bounds the AppContext hydration stall (1500 ms fallback → `setHydrated(true)`), but the **attributed release-race at `app/_layout.tsx:113-138` remains**: `ready = hydrated && (isLoaded || fallbackReady)` gates a `setTimeout(setReleased, 180)` inside an effect with deps `[mode, ready]` and a `completionStarted.current` guard. When `mode` flips `offline→online` (connectivity resolves) in that ~180 ms window, React cleanup runs `clearTimeout` and the re-run is a no-op because `completionStarted.current === true` — `released` never becomes true, so the splash hangs forever with JS idle. The on-screen "Checking your saved session…" confirms `mode` is `'online'` at render time.
+- No state checks (prior runs/rehab/start-date/sign-in) were reachable because the UI never passes the bootstrap.
+
+**Per instructions: the test did not pass — the APK is NOT distributed.** Stopping here; no source changes made.

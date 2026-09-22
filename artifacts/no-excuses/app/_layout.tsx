@@ -131,11 +131,15 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
         history[mode] = [...history[mode], elapsed].slice(-12);
         return AsyncStorage.setItem('no-excuses-bootstrap-loading-times', JSON.stringify(history));
       });
-      const timer = setTimeout(() => setReleased(true), 180);
-      return () => clearTimeout(timer);
     }
     return undefined;
   }, [mode, ready]);
+
+  useEffect(() => {
+    if (!ready || released) return;
+    const timer = setTimeout(() => setReleased(true), 180);
+    return () => clearTimeout(timer);
+  }, [ready, released]);
 
   useEffect(() => {
     if (ready) return;
