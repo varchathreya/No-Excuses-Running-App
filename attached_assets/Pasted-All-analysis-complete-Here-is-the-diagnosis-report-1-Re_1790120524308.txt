@@ -1,0 +1,65 @@
+All analysis complete. Here is the diagnosis report.
+
+## 1. Repository state
+
+Branch `sync/replit-current-20260916`; HEAD `baff67c` == `origin/sync/replit-current-20260916` exactly (in sync). One tag exists: `no-excuses-stable-apk-2026-09-14` (dated, from the earlier stable release).
+
+Working tree has **uncommitted local changes only**:
+- `M artifacts/no-excuses/{app.json, package.json, scripts/build.js}` (the v2 API-URL guard + versionCode 6 + scripts)
+- `??` new `scripts/release-env.cjs`, `scripts/build-android-release.cjs`, `releases/`, and six `release-run-*.log` files (all preserved).
+
+## 2. Source/commit that produced installed Amma Launch v2 APK
+
+There is **no commit or tag** for v2. It was built from the **working tree at HEAD `baff67c`** plus uncommitted local modifications (`app.json` versionCode 6, `build.js` guard, `release-env.cjs`). Build settings: `EXPO_PUBLIC_API_URL` supplied explicitly = production; publishable key inherited from `.env.local` during prebuild/Metro. Signer = Android Debug (`CN=Android Debug`, SHA-1 `5e8f1606…`), SHA-256 `EA3544…A571199`.
+
+## 3. v2 bundle metadata (safe, values withheld)
+
+- API hostname baked: **`https://no-excuses-running-app.replit.app`** (exact string present).
+- `.replit.dev` development host: **no** as API base (spock host count = 0; the single `replit.dev` substring is a minifier-merged fragment `replit.devToolsRequestId`, not a URL).
+- Clerk publishable-key prefix: **`pk_test_`** (3 occurrences).
+- `EXPO_PUBLIC_CLERK_PROXY_URL`: **not baked** (the 30 `__clerk` strings are Clerk SDK internal cache keys, not a proxy URL).
+- No Clerk proxy hostname baked.
+
+## 4. Env supplied during the v6 build (presence only)
+
+- `EXPO_PUBLIC_API_URL`: **present** — production (`no-excuses-running-app.replit.app`), confirmed by log line `Release API base URL host: …`.
+- `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`: **present** — loaded/exported from `.env.local`, prefix `pk_test_`.
+- `EXPO_PUBLIC_CLERK_PROXY_URL`: **not present** (never exported).
+- `CLERK_PUBLISHABLE_KEY`: **not supplied** (not referenced in the v6 log; the publishable key came from `.env.local`).
+
+## 5. Same Clerk instance? — NO (proven, not guessed)
+
+- **APK-side instance**: its publishable key decodes to host `smiling-porpoise-4596.clerk.accounts.dev`; querying that instance's well-known returns instance ID **`ins_3J6lQrszs3XbUyUUmzEzC1iFm6`**.
+- **Deployed API-side instance**: the API's own Clerk proxy (`/api/__clerk`, config `clerkProxyMiddleware.ts` → `frontend-api.clerk.dev` with the secret key) returns `X-Clerk-Instance-Id: **ins_3J6lQtQXxMhvWrOGvqH1zmHIltS**`.
+
+These are **different instances**. This is a real, provable environment mismatch — the message the app shows is accurate. Missing info (cannot be derived from here): the API instance's *domain*, and whether it is test/live — only its ID is exposed. That does not affect the conclusion.
+
+## 6. v2 API-URL fix sync status
+
+**Not synchronized into the source branch.** It exists only as an uncommitted working-tree diff on `sync/replit-current-20260916`:
+- `scripts/build.js` diff (guard + no `REPLIT_DEV_DOMAIN` silent fallback)
+- new `scripts/release-env.cjs`, `scripts/build-android-release.cjs`
+- `app.json` versionCode 5→6
+
+`git log --all -S resolveReleaseApiUrl` and `--all -- release-env.cjs` return nothing → no commit contains it. The committed `build.js` at HEAD still has the old `EXPO_PUBLIC_API_URL || https://${expoPublicDomain}` fallback. **Not overwritten.**
+
+## 7. Sign-in flicker — separate navigation race (yes)
+
+Two distinct race conditions exist over and above the env mismatch:
+1. `sign-in.tsx:47-54,65` — on successful SSO, `setActive({ session, navigate: () => router.replace('/connect-calendar') })` **and** the render-time `if (isSignedIn) return <Redirect href="/connect-calendar" />` fire **simultaneously** (double navigation to the same target, racing each tick).
+2. `connect-calendar.tsx:82-84` — the auto-start effect re-runs on every `isLoaded`/`isSignedIn` change while Clerk is still settling, and because `started.current` resets on remount, the flow can restart during a bounce between screens.
+
+The `(tabs)/_layout.tsx:16` `!isSignedIn → /sign-in` redirect plus the above creates flicker between sign-in ↔ connect-calendar around Google return. Independent of the Calendar env error.
+
+## 8–9.
+No rebuild, nothing installed.
+
+## 10. Final answers
+
+- **Definitely Clerk environment mismatch?** Yes — proven by distinct instance IDs.
+- **Which Clerk environment APK uses:** `pk_test`, instance `smiling-porpoise-4596…` (`ins_3J6lQrs…Fm6`), direct Clerk (no proxy).
+- **Which the deployed API uses:** its secret-key instance `ins_3J6lQt…ltS` (test/live and domain unknown — not exposed; only the ID is observable).
+- **v2 API-URL fix synchronized?** No — local-only working-tree diff, not committed/tagged.
+- **Is flicker a separate navigation race?** Yes (two independent navigation races in 1 and 2 above).
+- **Exact next fix required:** rebuild with a `pk_test` publishable key belonging to the **same Clerk instance as the API's `CLERK_SECRET_KEY`** (`ins_3J6lQt…ltS`), supplied as `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` at build time; and fix the two navigation races (`sign-in.tsx` redundant `setActive`-navigate + `<Redirect>`; `connect-calendar.tsx` settling-guard before auto-`begin()`).
+- **Which must change:** **all three** — (a) Replit secrets: obtain the matching publishable key for the API's Clerk instance; (b) local build environment: pass that key (and keep production `EXPO_PUBLIC_API_URL`); (c) Replit source: optionally commit the already-written build.js guard so the API-URL fix is no longer floating-uncommitted. The 502 root cause (dev URL) is already fixed in the v2 artifact itself.
