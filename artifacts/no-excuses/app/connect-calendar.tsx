@@ -17,6 +17,7 @@ export default function ConnectCalendar() {
   const router = useRouter();
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const started = useRef(false);
+  const autoStartConsumed = useRef(false);
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,7 +81,14 @@ export default function ConnectCalendar() {
   }, [getToken, isLoaded, isSignedIn, router]);
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) void begin();
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      autoStartConsumed.current = false;
+      return;
+    }
+    if (autoStartConsumed.current) return;
+    autoStartConsumed.current = true;
+    void begin();
   }, [begin, isLoaded, isSignedIn]);
 
   const skip = () => router.replace('/(tabs)');

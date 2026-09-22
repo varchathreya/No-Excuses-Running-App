@@ -129,6 +129,31 @@ function getExpoPublicReplId() {
   return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
 }
 
+function resolveApiUrl(expoPublicDomain) {
+  const configured = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (!configured) {
+    if (process.env.NO_EXCUSES_RELEASE_BUILD === '1') {
+      throw new Error(
+        'NO_EXCUSES_RELEASE_BUILD=1 requires EXPO_PUBLIC_API_URL. Refusing to bake a development API URL into a standalone release.',
+      );
+    }
+    return `https://${expoPublicDomain}`;
+  }
+
+  const withProtocol = /^https?:\/\//i.test(configured)
+    ? configured
+    : `https://${configured}`;
+  const parsed = new URL(withProtocol);
+  if (process.env.NO_EXCUSES_RELEASE_BUILD === '1' && parsed.hostname.endsWith('.replit.dev')) {
+    throw new Error(
+      `Standalone release API URL cannot use a development host: ${parsed.hostname}`,
+    );
+  }
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed.toString().replace(/\/+$/, '');
+}
+
 async function startMetro(expoPublicDomain, expoPublicReplId) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
@@ -138,14 +163,15 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
 
   console.log('Starting Metro...');
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
+  const apiUrl = resolveApiUrl(expoPublicDomain);
+  console.log(`Release API base URL host: ${new URL(apiUrl).host}`);
   const clerkProxyUrl = process.env.CLERK_PROXY_URL
     ? `https://${expoPublicDomain}${process.env.CLERK_PROXY_URL}`
     : '';
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
-    EXPO_PUBLIC_API_URL:
-      process.env.EXPO_PUBLIC_API_URL || `https://${expoPublicDomain}`,
+    EXPO_PUBLIC_API_URL: apiUrl,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:
       process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
