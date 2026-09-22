@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState as RNAppState, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { createInitialWorkouts, type GaitProtocol, type RegimenId, type RehabRoutine, type WorkoutSessionKind } from '@/constants/workoutPlan';
@@ -165,9 +165,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [rehabLogs, setRehabLogs] = useState<RehabLog[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [storageReady, setStorageReady] = useState(false);
   const [offlineMode, setOfflineModeState] = useState(false);
   const [isOnline, setIsOnline] = useState(Platform.OS === 'web' ? typeof navigator === 'undefined' || navigator.onLine !== false : false);
+  const hasLocalEditsRef = useRef(false);
   useEffect(() => {
+    let cancelled = false;
+    let releasedOnFallback = false;
+    const fallbackTimer = setTimeout(() => {
+      if (cancelled) return;
+      releasedOnFallback = true;
+      setHydrated(true);
+    }, 1500);
+
     Promise.all([
       AsyncStorage.getItem('no-excuses-workouts'),
       AsyncStorage.getItem('no-excuses-workouts-by-regimen'),
@@ -177,14 +187,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.getItem('no-excuses-start-date'),
       AsyncStorage.getItem('no-excuses-offline-mode'),
     ]).then(([savedWorkouts, savedWorkoutsByRegimen, savedActivities, savedRehabLogs, savedRegimen, savedStartDate, savedOfflineMode]) => {
+      if (cancelled) return;
+      clearTimeout(fallbackTimer);
+
+      // If the UI was already released and the user edited the default state,
+      // do not overwrite those edits with a late storage response.
+      if (releasedOnFallback && hasLocalEditsRef.current) {
+        setStorageReady(true);
+        return;
+      }
+
       const storedRegimen: RegimenId = savedRegimen === '2' ? 2 : 1;
       let parsedByRegimen: WorkoutsByRegimen = {};
       if (savedWorkoutsByRegimen) {
         try {
           const parsed = JSON.parse(savedWorkoutsByRegimen) as Record<string, SavedWorkout[]>;
           parsedByRegimen = {
-            1: parsed['1'] ? hydrateWorkouts(parsed['1'], 1) : undefined,
-            2: parsed['2'] ? hydrateWorkouts(parsed['2'], 2) : undefined,
+            1: Array.isArray(parsed['1']) ? hydrateWorkouts(parsed['1'], 1) : undefined,
+            2: Array.isArray(parsed['2']) ? hydrateWorkouts(parsed['2'], 2) : undefined,
           };
         } catch {
           parsedByRegimen = {};
@@ -215,35 +235,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setHydrated(true);
+      setStorageReady(true);
+    }).catch(() => {
+      if (cancelled) return;
+      clearTimeout(fallbackTimer);
+      setHydrated(true);
     });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(fallbackTimer);
+    };
   }, []);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !storageReady) return;
     void AsyncStorage.setItem('no-excuses-workouts', JSON.stringify(workouts));
-  }, [hydrated, workouts]);
+  }, [hydrated, storageReady, workouts]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !storageReady) return;
     const merged = { ...workoutsByRegimen, [regimenId]: workouts };
     void AsyncStorage.setItem('no-excuses-workouts-by-regimen', JSON.stringify(merged));
-  }, [hydrated, regimenId, workouts, workoutsByRegimen]);
+  }, [hydrated, regimenId, storageReady, workouts, workoutsByRegimen]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !storageReady) return;
     void AsyncStorage.setItem('no-excuses-activities', JSON.stringify(activities));
-  }, [activities, hydrated]);
+  }, [activities, hydrated, storageReady]);
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !storageReady) return;
     void AsyncStorage.setItem('no-excuses-rehab-logs', JSON.stringify(rehabLogs));
-  }, [hydrated, rehabLogs]);
+  }, [hydrated, rehabLogs, storageReady]);
   const setOfflineMode = useCallback((enabled: boolean) => {
+    hasLocalEditsRef.current = true;
     setOfflineModeState(enabled);
     void AsyncStorage.setItem('no-excuses-offline-mode', String(enabled));
   }, []);
   const setStartDate = useCallback((nextStartDate: string | null) => {
+    hasLocalEditsRef.current = true;
     setStartDateState(nextStartDate);
     void AsyncStorage.setItem('no-excuses-start-date', nextStartDate ?? '');
   }, []);
   const setRegimen = useCallback((nextRegimen: RegimenId) => {
     if (nextRegimen === regimenId) return;
+    hasLocalEditsRef.current = true;
     setWorkoutsByRegimen((previous) => ({ ...previous, [regimenId]: workouts }));
     setWorkouts(workoutsByRegimen[nextRegimen] ?? createInitialWorkouts(nextRegimen));
     setRegimenIdState(nextRegimen);
@@ -297,15 +330,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [checkConnectivity]);
-  const update = (fn: (items: Workout[]) => Workout[]) => { setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
+  const update = (fn: (items: Workout[]) => Workout[]) => { hasLocalEditsRef.current = true; setWorkouts(fn); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
   const value = useMemo(() => ({
     workouts, activities, rehabLogs, regimenId, startDate, hydrated, setRegimen, setStartDate,
     scheduleAll: () => update((items) => items.map((item) => ({ ...item, scheduled: true }))),
     toggleSchedule: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, scheduled: !item.scheduled } : item)),
     completeWorkout: (id: string) => update((items) => items.map((item) => item.id === id ? { ...item, completed: true, scheduled: true } : item)),
     setAlarmChecked: (id: string, checked: boolean) => update((items) => items.map((item) => item.id === id ? { ...item, alarmSet: checked } : item)),
-    saveActivity: (activity: Activity) => setActivities((items) => [activity, ...items]),
-    saveRehabLog: (log: RehabLog) => setRehabLogs((items) => [log, ...items]),
+    saveActivity: (activity: Activity) => { hasLocalEditsRef.current = true; setActivities((items) => [activity, ...items]); },
+    saveRehabLog: (log: RehabLog) => { hasLocalEditsRef.current = true; setRehabLogs((items) => [log, ...items]); },
     offlineMode,
     isOnline,
     networkAvailable: !offlineMode && isOnline,
