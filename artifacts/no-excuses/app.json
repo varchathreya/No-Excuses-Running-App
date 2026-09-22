@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.noexcuses.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "SCHEDULE_EXACT_ALARM", "com.android.alarm.permission.SET_ALARM"]
     },
     "web": {
