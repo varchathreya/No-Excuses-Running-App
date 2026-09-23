@@ -5,6 +5,27 @@ import { getAuthState, hasBearerToken, sendUnauthorized } from "../lib/auth";
 const router: IRouter = Router();
 
 /**
+ * Mobile clients need the public Clerk key for the same environment as this
+ * API. The publishable key is intentionally public client configuration; do
+ * not add the Clerk secret key or any session data to this response.
+ */
+router.get("/auth/mobile-config", (_req, res) => {
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY?.trim();
+
+  if (!publishableKey || !/^pk_(test|live)_/.test(publishableKey)) {
+    res.status(503).json({
+      code: "MOBILE_AUTH_CONFIG_UNAVAILABLE",
+      message: "The mobile Clerk configuration is not available.",
+    });
+    return;
+  }
+
+  res.json({
+    clerkPublishableKey: publishableKey,
+  });
+});
+
+/**
  * Preflight endpoint used by the mobile app before starting sensitive flows
  * (e.g. linking a Google Calendar account).
  *

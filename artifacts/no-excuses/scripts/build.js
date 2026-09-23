@@ -154,6 +154,63 @@ function resolveApiUrl(expoPublicDomain) {
   return parsed.toString().replace(/\/+$/, '');
 }
 
+async function resolveClerkPublishableKey(apiUrl) {
+  const explicitKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+  const isStandaloneRelease = process.env.NO_EXCUSES_RELEASE_BUILD === '1';
+
+  if (explicitKey) {
+    if (isStandaloneRelease && !explicitKey.startsWith('pk_live_')) {
+      throw new Error(
+        'Standalone release builds require a Production Clerk publishable key (pk_live_).',
+      );
+    }
+    return explicitKey;
+  }
+
+  if (!isStandaloneRelease) {
+    return process.env.CLERK_PUBLISHABLE_KEY;
+  }
+
+  const configUrl = new URL('/api/auth/mobile-config', `${apiUrl}/`);
+  let response;
+  try {
+    response = await fetch(configUrl, {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Accept: 'application/json' },
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not fetch the Production Clerk configuration from ${configUrl.origin}: ${
+        error instanceof Error ? error.message : 'unknown network error'
+      }`,
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Production Clerk configuration returned HTTP ${response.status}. ` +
+        'Publish the API with CLERK_PUBLISHABLE_KEY before building the APK.',
+    );
+  }
+
+  let config;
+  try {
+    config = await response.json();
+  } catch {
+    throw new Error('Production Clerk configuration was not valid JSON.');
+  }
+
+  const publishableKey = config?.clerkPublishableKey;
+  if (typeof publishableKey !== 'string' || !publishableKey.startsWith('pk_live_')) {
+    throw new Error(
+      'Production Clerk configuration did not return a pk_live_ publishable key.',
+    );
+  }
+
+  console.log('Fetched Production Clerk publishable key from the deployed API.');
+  return publishableKey;
+}
+
 async function startMetro(expoPublicDomain, expoPublicReplId) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
@@ -165,6 +222,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
   const apiUrl = resolveApiUrl(expoPublicDomain);
   console.log(`Release API base URL host: ${new URL(apiUrl).host}`);
+  const clerkPublishableKey = await resolveClerkPublishableKey(apiUrl);
   const clerkProxyUrl = process.env.CLERK_PROXY_URL
     ? `https://${expoPublicDomain}${process.env.CLERK_PROXY_URL}`
     : '';
@@ -174,8 +232,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     EXPO_PUBLIC_API_URL: apiUrl,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
     EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:
-      process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
-      process.env.CLERK_PUBLISHABLE_KEY,
+      clerkPublishableKey,
     EXPO_PUBLIC_CLERK_PROXY_URL: clerkProxyUrl,
   };
 
