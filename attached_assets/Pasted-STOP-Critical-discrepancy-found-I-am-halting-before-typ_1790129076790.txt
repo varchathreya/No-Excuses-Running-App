@@ -1,0 +1,28 @@
+STOP. Critical discrepancy found. I am halting **before typecheck/build** because the required Clerk key is not present.
+
+## Report — blocked (no build)
+
+**Matching Clerk key: NOT available.** Verification of the current `artifacts/no-excuses/.env.local` (safe, values never printed) shows it does **not** contain a key for the required deployed-API instance.
+
+**Safe evidence gathered:**
+
+| Check | Result |
+|---|---|
+| `.env.local` git-ignored | True (never committed) |
+| `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY` present | True, prefix `pk_test` |
+| Key decoded frontend domain (hostname only) | `smiling-porpoise-4596.clerk.accounts.dev` |
+| Frontend API `x-clerk-instance-id` for that domain | `ins_3J6lQruszs3XbUyUUmzEzC1iFm6` (measured just now) |
+| **Required** deployed API instance (your confirmed fact) | `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS` |
+| Key hash vs preserved old-key backup | byte-identical (`...a73c7f5291f2`) |
+| Old `smiling-porpoise-4596` ingredient | Present (prohibited) |
+| `EXPO_PUBLIC_API_URL` in `.env.local` | `https://no-excuses-running-app.replit.app` (correct) |
+| `NO_EXCUSES_RELEASE_BUILD` | present |
+| `EXPO_PUBLIC_CLERK_PROXY_URL` | absent (correct) |
+
+**Conclusion:** The publishable key currently in `.env.local` encodes the **old `smiling-porpoise-4596` instance** and is byte-identical to the preserved v2-era key. It is **not** a key belonging to `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS`. So the file has not actually been updated with the Replit-managed key (or the update did not persist).
+
+**Why I stopped:** Your instructions were explicit — "Do not use the old smiling-porpoise-4596 key", "Use a publishable key belonging to this exact deployed API Clerk instance: `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS`", "do not build an APK with the wrong key", and "Do not print its value... or overwrite the file." Building now would bake the wrong (old) key. I did not create a new Clerk instance, did not overwrite the file, and did not typecheck/build.
+
+**Exact next fix required:** place the Replit-managed publishable key belonging to instance `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS` into a secure env var at build time (or into `.env.local`). I can re-verify it safely (decoded frontend domain → `x-clerk-instance-id` must equal `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS`) without printing the key, then proceed with typecheck, build, verify, checksum, and copy to `C:\NE12\releases\Amma Launch v3.apk`.
+
+Nothing was built, typed-checked, or installed; the working tree and all untracked logs/APKs remain untouched.
