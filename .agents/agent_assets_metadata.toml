@@ -14,3 +14,17 @@ mtime_ms = 1790135573586
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:923c16c1-1570-447b-89b7-98597853569d/00fb92b1-6342-41a6-b23b-3497efbc89b7/b88aa67c-0eff-47a4-8572-636f7e953eef"
 storage_version_token = "1790137446409085"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "ICuAq6BeYUw3Bo8QAu-4w"
+uri = "file://releases/No-Excuses-production-target-experimental-arm64.apk"
+type = "unspecified"
+title = "No Excuses production-target experimental APK"
+description = "ARM64 APK, version 1.0.0 (version code 6), built with the production API URL and runtime Clerk environment discovery. It contains no baked pk_test_ or pk_live_ key. The APK is valid and installable but debug-signed because no Android release keystore was available. Publish the API change first: the current deployed endpoint still returns 404 for /api/auth/mobile-config. SHA-256: 2c1f41383539742602fa6e64ab09260c91de967784ee6577db468b2cb68ba7ec."
+logical_id = "72f7d85a-3b79-4f6e-97ad-b0614a804916"
+content_hash = "sha256:2c1f41383539742602fa6e64ab09260c91de967784ee6577db468b2cb68ba7ec"
+size = 60874023
+mtime_ms = 1790138551499
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:923c16c1-1570-447b-89b7-98597853569d/72f7d85a-3b79-4f6e-97ad-b0614a804916/6542a9d5-6c2c-4b9c-bd1b-a87eb0f4e1f0"
+storage_version_token = "1790138613891072"
+content_type = "application/octet-stream"

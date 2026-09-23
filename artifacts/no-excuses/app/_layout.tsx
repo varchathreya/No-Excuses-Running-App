@@ -25,6 +25,7 @@ import {
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { useColors } from '@/hooks/useColors';
+import { fetchMobileAuthConfig } from '@/lib/mobile-auth-config';
 
 function getApiBaseUrl() {
   const configured = process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_DOMAIN;
@@ -178,6 +179,9 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  const configuredPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() || null;
+  const [publishableKey, setPublishableKey] = useState<string | null>(null);
+  const [clerkConfigError, setClerkConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -185,12 +189,46 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchMobileAuthConfig(getApiBaseUrl())
+      .then((config) => {
+        if (!cancelled) setPublishableKey(config.clerkPublishableKey);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (configuredPublishableKey) {
+          setPublishableKey(configuredPublishableKey);
+          return;
+        }
+        setClerkConfigError(
+          error instanceof Error
+            ? error.message
+            : 'The No Excuses authentication configuration could not be loaded.',
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [configuredPublishableKey]);
+
   if (!fontsLoaded && !fontError) return null;
 
-  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const proxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
   if (!publishableKey) {
-    throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is required.');
+    return (
+      <View style={[authLoading.screen, { backgroundColor: '#111315' }]}>
+        <Text style={[authLoading.title, { color: '#F7F3EA' }]}>
+          {clerkConfigError ? 'Authentication is unavailable.' : 'Connecting to No Excuses…'}
+        </Text>
+        <Text style={[authLoading.message, { color: '#A9A39A' }]}>
+          {clerkConfigError || 'Loading the Clerk environment for this API.'}
+        </Text>
+        {!clerkConfigError && <ActivityIndicator color="#FF6657" style={authLoading.spinner} />}
+      </View>
+    );
   }
 
   return (
