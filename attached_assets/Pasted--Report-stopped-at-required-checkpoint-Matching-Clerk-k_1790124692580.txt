@@ -1,0 +1,21 @@
+## Report — stopped at required checkpoint
+
+**Matching Clerk key availability: NOT available locally. Build halted per your explicit instruction.** I did not guess, substitute another key, typecheck, or build an APK.
+
+**Clerk key search performed (safe metadata only, nothing printed):**
+- Env vars `CLERK_PUBLISHABLE_KEY`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` — all unset/empty.
+- No `*.env*` files exist anywhere in the repo except `artifacts/no-excuses/.env.local` (which holds the prohibited `smiling-porpoise-4596` key — left unmodified).
+- No secret/credential files under `artifacts`, repo root, temp opencode dir, or home dotfiles.
+- No usable local secure secret handoff was found. `EXPO_PUBLIC_CLERK_PROXY_URL` also unset (correct — no proxy for this APK).
+
+**Steps 1–4 completed successfully:**
+1. **Backup:** tracked diff → `C:\NE12\v2-local-backup\v2-local-tracked.patch`; preserved `scripts\release-env.cjs`, `scripts\build-android-release.cjs`, `releases\`, and all `release-run-*.log` in `C:\NE12\v2-local-backup\`. Originals also still in place.
+2. **Sync:** `git fetch origin` then fast-forwarded `sync/replit-current-20260916` from `baff67c..50c79a7` (ff-only). Branch fully in sync with origin.
+3. **HEAD** = `50c79a73939260189763849fae1df4625a25af58` (contains published navigation + release-guard fixes).
+4. **Tooling restored:** `app.json` `versionCode` re-set to **6** (published source had 5). `package` = `com.noexcuses.app`, `versionName` = `1.0.0`. Release guard present: `scripts/build.js` now throws unless `NO_EXCUSES_RELEASE_BUILD=1` with non-dev `EXPO_PUBLIC_API_URL`; `release-env.cjs` rejects missing/https/dev hosts. No duplicate `expo` entry in `dependencies` (it's only in `devDependencies`). Untracked release logs/scripts/APKs preserved — nothing deleted, `releases\` untouched.
+
+**Blocker (exact next fix required):** Provide a publishable key belonging to Clerk instance `ins_3J6lQtQXxMhvWrOGvqH1zmHIltS` (the deployed API's instance) via a secure local env var or secret handoff. Note: this API instance's key will be `pk_test`-prefixed only if the API's `CLERK_SECRET_KEY` is a test key; it could also be `pk_live_`. Do not reuse the `.env.local` key.
+
+**Next step once the key is available (needs all three):** the Replit deployment must expose the matching publishable key, the local build env must pass `EXPO_PUBLIC_API_URL=https://no-excuses-running-app.replit.app`, `NO_EXCUSES_RELEASE_BUILD=1`, and `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=<matching>` (`NO_EXCUSES_RELEASE_BUILD=1 + EXPO_PUBLIC_API_URL=prod` are already enforced by the guard scripts) — then typecheck (`pnpm --filter @workspace/no-excuses run typecheck`), build via `build-android-release.cjs`, verify, and copy to `C:\NE12\releases\Amma Launch v2.apk`.
+
+No build was run and nothing was installed.
