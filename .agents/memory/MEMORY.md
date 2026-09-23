@@ -11,3 +11,4 @@
 - [Stable Android releases](stable-android-releases.md) — tag the tested source and archive the exact standalone APK separately; Git source history alone cannot restore the binary.
 - [Local-first startup](local-first-startup.md) — local plan data must hydrate independently of Clerk and reachability so offline launches remain usable.
 - [Android native build limits](android-native-build-limits.md) — Nix Android SDK builds may need a writable SDK copy, low Gradle/CMake parallelism, and lint skipped for experimental APKs.
+- [Expo publish peer layout](expo-publish-peer-layout.md) — Expo CLI typed-route generation needs router-server directly linked inside the Expo artifact so its expo-router peer resolves during publishing.
