@@ -9,3 +9,4 @@
 - [Windows pnpm binaries](windows-pnpm-binaries.md) — C:\NE9 may resolve different pnpm versions between shell and preflight, causing node_modules churn or ignored-build warnings.
 - [Stable Android releases](stable-android-releases.md) — tag the tested source and archive the exact standalone APK separately; Git source history alone cannot restore the binary.
 - [Local-first startup](local-first-startup.md) — local plan data must hydrate independently of Clerk and reachability so offline launches remain usable.
+- [Android native build limits](android-native-build-limits.md) — Nix Android SDK builds may need a writable SDK copy, low Gradle/CMake parallelism, and lint skipped for experimental APKs.
