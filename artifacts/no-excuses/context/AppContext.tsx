@@ -16,6 +16,8 @@ export type Workout = {
   minimumDurationSeconds?: number;
   focus: string;
   protocolId?: GaitProtocol;
+  targetPaceSecondsPerKm?: number;
+  targetPaceLabel?: string;
   rehabRoutine?: RehabRoutine;
   scheduled: boolean;
   completed: boolean;

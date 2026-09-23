@@ -12,10 +12,12 @@ export type WorkoutPlanEntry = {
   minimumDurationSeconds?: number;
   focus: string;
   protocolId?: GaitProtocol;
+  targetPaceSecondsPerKm?: number;
+  targetPaceLabel?: string;
   rehabRoutine?: RehabRoutine;
 };
 
-export const WORKOUT_PLAN_VERSION = 3;
+export const WORKOUT_PLAN_VERSION = 4;
 export const REGIMEN_LABELS: Record<RegimenId, string> = {
   1: 'Current regimen',
   2: 'Home-Grown Runner',
@@ -51,6 +53,32 @@ const protocolDetails: Record<GaitProtocol, Omit<WorkoutPlanEntry, 'kind' | 'pro
     focus: 'Alternate 2 minutes walking with 3 minutes of ground running at a controlled 3.5–5.0 mph pace. Prioritize high step frequency and low vertical bounce.',
   },
 };
+
+/**
+ * Scheduled gait work gets a small, explicit weekly pace progression. Lower
+ * seconds per kilometre means a faster target. These are guidance targets,
+ * not a requirement to run through pain or ignore symptoms.
+ */
+const WEEKLY_GAIT_PACE_SECONDS_PER_KM = [840, 825, 810, 795, 780, 765, 750, 735] as const;
+
+export function gaitTargetPaceSecondsPerKm(week: number) {
+  const index = Math.max(0, Math.min(WEEKLY_GAIT_PACE_SECONDS_PER_KM.length - 1, Math.floor(week) - 1));
+  return WEEKLY_GAIT_PACE_SECONDS_PER_KM[index];
+}
+
+export function gaitTargetPaceLabel(week: number) {
+  const seconds = gaitTargetPaceSecondsPerKm(week);
+  return `Target pace · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')} /km`;
+}
+
+function withGaitPace(entry: WorkoutPlanEntry, week: number): WorkoutPlanEntry {
+  if (entry.kind !== 'gait') return entry;
+  return {
+    ...entry,
+    targetPaceSecondsPerKm: gaitTargetPaceSecondsPerKm(week),
+    targetPaceLabel: gaitTargetPaceLabel(week),
+  };
+}
 
 const isometricFocus = (routine: 1 | 2) =>
   routine === 1
@@ -98,11 +126,11 @@ export const WORKOUT_PLAN: WorkoutPlanEntry[] = Array.from({ length: 56 }, (_, i
   }
   const protocol = gaitDays[day];
   if (protocol) {
-    return {
+    return withGaitPace({
       ...protocolDetails[protocol],
       kind: 'gait',
       protocolId: protocol,
-    };
+    }, week);
   }
   const routine = rehabDays[day];
   if (routine === 1 || routine === 2) {
@@ -191,7 +219,7 @@ export const REGIMEN_2_PLAN: WorkoutPlanEntry[] = Array.from({ length: 56 }, (_,
   const day = index + 1;
   const item = regimenTwoPlan[day];
   if (!item) throw new Error(`No regimen 2 entry configured for day ${day}`);
-  return item;
+  return withGaitPace(item, Math.floor(index / 7) + 1);
 });
 
 export function getWorkoutPlan(regimenId: RegimenId): WorkoutPlanEntry[] {

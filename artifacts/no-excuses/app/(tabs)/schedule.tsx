@@ -120,6 +120,7 @@ function WorkoutRow({
         <View style={{ flex: 1 }}>
           <View style={local.titleLine}><Text style={[local.rowTitle, { color: colors.foreground }]}>{sessionType(item)}</Text>{item.completed && <Pill color={colors.accent}>DONE</Pill>}</View>
           <Text style={[styles.muted, { color: colors.mutedForeground }]}>{workoutDateLabel(item.day, startDate) ?? weekday}</Text>
+           {item.targetPaceLabel && <Text style={[styles.muted, { color: colors.primary, marginTop: 3 }]}>{item.targetPaceLabel}</Text>}
         </View>
         <Pressable
           testID={`Info ${item.id}`}
@@ -210,6 +211,9 @@ function WorkoutInfoModal({
           {item.minimumDurationSeconds ? (
             <Text style={[styles.muted, { color: colors.mutedForeground }]}>Minimum run time: {Math.floor(item.minimumDurationSeconds / 60)} minutes.</Text>
           ) : null}
+          {item.targetPaceLabel ? (
+            <Text style={[styles.muted, { color: colors.primary }]}>{item.targetPaceLabel}</Text>
+          ) : null}
           <Button label="Start session" icon="play" onPress={() => onStart(item)} />
           <Button
             label={booked && formatEventTime(calendarStart) ? `Booked · ${formatEventTime(calendarStart)}` : networkAvailable ? 'Book in Google Calendar' : 'Calendar unavailable offline'}
@@ -269,6 +273,11 @@ export default function Schedule() {
   useFocusEffect(useCallback(() => {
     setWeek(currentPlanWeek(workouts, startDate) ?? 1);
   }, [startDate, workouts]));
+  useEffect(() => {
+    // Changing the plan is not an attempt to start a locked workout. Clear
+    // any stale warning left behind by the previous plan.
+    setPendingStart(null);
+  }, [startDate, workouts]);
   const presentLinkCalendarOutcome = (outcome: Awaited<ReturnType<typeof linkCalendar>>) => {
     switch (outcome.status) {
       case 'not-ready':

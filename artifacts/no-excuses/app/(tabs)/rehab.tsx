@@ -5,9 +5,8 @@ import { Feather } from '@expo/vector-icons';
 import { Screen, Header, Button, SectionTitle, styles } from '@/components/Screen';
 import { useColors } from '@/hooks/useColors';
 import { useLocalSearchParams } from 'expo-router';
-import { currentPlanWeek, isWorkoutAvailableToday, scheduledWorkoutForToday, type RehabLog, type Workout, useApp, workoutDateLabel, workoutWeekdayName, workoutWeekdayIndex } from '@/context/AppContext';
+import { currentPlanWeek, isWorkoutAvailableToday, scheduledWorkoutForToday, type RehabLog, type Workout, useApp, workoutDateLabel, workoutWeekdayName } from '@/context/AppContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BrandedModal } from '@/components/BrandedModal';
 import Svg, { Circle } from 'react-native-svg';
 
 type IsometricExercise = {
@@ -42,7 +41,7 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 const REST_SECONDS = 120;
 
 const REHAB_VIDEO_URLS: Record<string, string> = {
-  'wall-sit-hold': 'https://www.youtube.com/watch?v=sT0jUNnb9dk',
+  'wall-sit-hold': 'https://www.youtube.com/watch?v=Dc5QglPQp-0',
   'single-leg-bridge-hold': 'https://www.youtube.com/watch?v=EuzLAQj1gWQ',
   'lunge-hold': 'https://www.youtube.com/watch?v=G5fqHk7zF3M',
   'isometric-calf-hold': 'https://www.youtube.com/watch?v=arLsa_isSOw',
@@ -114,7 +113,7 @@ export default function Rehab() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { workoutId } = useLocalSearchParams<{ workoutId?: string }>();
-  const { workouts, startDate, regimenId, completeWorkout, rehabLogs, saveRehabLog } = useApp();
+  const { workouts, startDate, completeWorkout, rehabLogs, saveRehabLog } = useApp();
   const scrollRef = useRef<ScrollView>(null);
   const activeWeek = currentPlanWeek(workouts, startDate) ?? 1;
   const todayWorkout = scheduledWorkoutForToday(workouts, startDate);
@@ -137,8 +136,6 @@ export default function Rehab() {
   const [loggedExercises, setLoggedExercises] = useState<string[]>([]);
   const [historyExercise, setHistoryExercise] = useState<RepExercise | null>(null);
   const [timerY, setTimerY] = useState(0);
-  const [showUnavailable, setShowUnavailable] = useState(true);
-  const previousRegimen = useRef(regimenId);
 
   useEffect(() => {
     setActive(0);
@@ -148,18 +145,10 @@ export default function Rehab() {
     setRestActive(false);
     setLoggedExercises([]);
     setHistoryExercise(null);
-    setShowUnavailable(true);
     setIsoSets(Object.fromEntries(isometricRoutine.map((item) => [item.key, Array(item.sets).fill(false)])));
     setRepSets(Object.fromEntries(repRoutine.map((item) => [item.key, Array.from({ length: item.sets }, () => ({ completed: false, reps: String(item.reps), weight: '' }))])));
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [workout?.id, workout?.kind, workout?.week, workout?.rehabRoutine]);
-
-  useEffect(() => {
-    if (previousRegimen.current !== regimenId) {
-      setShowUnavailable(false);
-      previousRegimen.current = regimenId;
-    }
-  }, [regimenId]);
 
   useEffect(() => {
     if (!isoStarted || isoSeconds <= 0) return;
@@ -319,15 +308,12 @@ export default function Rehab() {
           <Text style={[local.previewLabel, { color: colors.primary }]}>SESSION PREVIEW · {workout.duration}</Text>
           <Text style={[local.previewTitle, { color: colors.foreground }]}>{workout.title}</Text>
           <Text style={[styles.muted, { color: colors.mutedForeground }]}>{workout.focus}</Text>
+          {unavailable && (
+            <Text style={[styles.muted, { color: colors.mutedForeground, marginTop: 10 }]}>
+              Scheduled for {workoutDateLabel(workout.day, startDate) ?? workoutWeekdayName(workout.day, startDate)}. You can review the routine now; controls unlock on its assigned date.
+            </Text>
+          )}
         </View>
-        <BrandedModal
-          visible={unavailable && showUnavailable}
-           title={`Please wait until ${workoutWeekdayName(workout.day, startDate)}`}
-           message={`This is a Week ${workout.week} session scheduled for ${workoutDateLabel(workout.day, startDate) ?? workoutWeekdayName(workout.day, startDate)}. You can review the routine now, but its controls stay locked until then.`}
-          onRequestClose={() => setShowUnavailable(false)}
-          primaryLabel="Okay"
-          onPrimaryPress={() => setShowUnavailable(false)}
-        />
         <View style={[local.progress, { backgroundColor: unavailable ? colors.secondary : colors.card }]}>
           <View style={[local.track, { backgroundColor: colors.border }]}>
             <View style={[local.progressFill, { backgroundColor: colors.accent, width: `${(completedExercises / routine.length) * 100}%` }]} />

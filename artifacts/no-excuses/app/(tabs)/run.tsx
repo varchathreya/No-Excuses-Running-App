@@ -12,7 +12,6 @@ import { BrandedModal } from '@/components/BrandedModal';
 
 const EARTH_RADIUS = 6371000;
 const PACE_WINDOW_MS = 12000;
-const TARGET_PACE_SECONDS_PER_KM = 840;
 
 function distance(a: RoutePoint, b: RoutePoint) {
   const p = Math.PI / 180;
@@ -97,6 +96,15 @@ export default function Run() {
       previousRegimen.current = regimenId;
     }
   }, [regimenId]);
+
+  const previousStartDate = useRef(startDate);
+  useEffect(() => {
+    if (previousStartDate.current !== startDate) {
+      setShowWrongDay(false);
+      setIgnoreRequestedWorkout(true);
+      previousStartDate.current = startDate;
+    }
+  }, [startDate]);
 
   useEffect(() => () => {
     watch.current?.remove();
@@ -342,10 +350,10 @@ export default function Run() {
     latitudeDelta: .01,
     longitudeDelta: .01,
   } : undefined;
-  const paceStatus = running && !!linkedWorkoutId && moving && livePace !== null
-    ? livePace <= TARGET_PACE_SECONDS_PER_KM
+  const paceStatus = running && !!linkedWorkoutId && linkedWorkout?.targetPaceSecondsPerKm && moving && livePace !== null
+    ? livePace <= linkedWorkout.targetPaceSecondsPerKm
       ? { onTrack: true, label: 'Pace is great!' }
-      : { onTrack: false, label: 'Please speed up to keep pace for this run' }
+      : { onTrack: false, label: 'Ease toward today’s scheduled pace' }
     : null;
   const previewWorkout = ignoreRequestedWorkout ? undefined : requestedWorkout;
 
@@ -362,6 +370,7 @@ export default function Run() {
           <Text style={[local.eyebrow, { color: colors.primary }]}>PLANNED SESSION · {previewWorkout.duration}</Text>
           <Text style={[local.sessionTitle, { color: colors.foreground }]}>{previewWorkout.title}</Text>
           <Text style={[styles.muted, { color: colors.mutedForeground }]}>{previewWorkout.focus}</Text>
+           {previewWorkout.targetPaceLabel && <Text style={[styles.muted, { color: colors.primary, marginTop: 8 }]}>{previewWorkout.targetPaceLabel}</Text>}
         </View>
       )}
 

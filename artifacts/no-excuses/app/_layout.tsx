@@ -87,7 +87,9 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [averageMs, setAverageMs] = useState(900);
   const mode = offlineMode || !isOnline ? 'offline' : 'online';
-  const ready = hydrated && (isLoaded || fallbackReady);
+  // Online startup must wait for Clerk rather than briefly mounting the tabs
+  // and redirecting later. Explicit offline mode can still open saved plans.
+  const ready = hydrated && (isLoaded || (fallbackReady && offlineMode));
 
   useEffect(() => {
     let cancelled = false;
@@ -194,11 +196,19 @@ export default function RootLayout() {
 
     fetchMobileAuthConfig(getApiBaseUrl())
       .then((config) => {
+        if (configuredPublishableKey && config.clerkPublishableKey !== configuredPublishableKey) {
+          throw new Error(
+            'The local Clerk publishable key does not match the Clerk environment returned by this API.',
+          );
+        }
         if (!cancelled) setPublishableKey(config.clerkPublishableKey);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        if (configuredPublishableKey) {
+        // A local key can keep an explicitly offline/network-unavailable
+        // development launch usable, but HTTP errors and environment
+        // mismatches must remain visible instead of becoming auth 404s later.
+        if (configuredPublishableKey && error instanceof TypeError) {
           setPublishableKey(configuredPublishableKey);
           return;
         }
